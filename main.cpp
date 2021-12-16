@@ -282,6 +282,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			}
 		}
 
+	//	//imgui移動処理
+	//	Input::MouseMove mouseMove = input->GetMouseMove();
+
+	///*	if (input->PushMouseLeft()) {
+	//		ImGui::SetNextWindowPos(ImVec2(mouseMove.lX, mouseMove.lY));
+	//	}*/
+
 		//イージングで移動
 		if (MoveNumber == 1) {
 			PlayerPosition.y = initPositionY - 20.0f * easeInSine(frame / frameMax);
@@ -379,8 +386,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		ImGui::Begin("position");
 		ImGui::SliderFloat("Position.x", &PlayerPosition.x, 50, -50);
 
-		/*	ImGui::Begin("position");
-			ImGui::SliderFloat("Position.x", &PlayerPosition.x, 100, -100);*/
 		ImGui::End();
 		//プリティ部形状の設定コマンド
 		dxCommon->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

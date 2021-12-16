@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include "imgui.h"
 
 //ウィンドウズアプリケーション
 class WinApp
