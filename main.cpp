@@ -10,7 +10,6 @@
 
 #include<DirectXTex.h>
 #include<wrl.h>
-//#include"Header1.hlsli"
 #include "Input.h"
 #include "WinApp.h"
 #include "DirectXCommon.h"
