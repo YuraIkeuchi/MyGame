@@ -7,6 +7,7 @@ LRESULT WinApp::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam)) {
 		return 1;
 	}
+
 	switch (msg) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
