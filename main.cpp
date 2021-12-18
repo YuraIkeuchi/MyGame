@@ -144,13 +144,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// スプライト共通テクスチャ読み込み
 	/*SpriteCommonLoadTexture(spriteCommon, 0, L"Resources/texture.png", dxCommon->GetDev());
 	SpriteCommonLoadTexture(spriteCommon, 1, L"Resources/house.png", dxCommon->GetDev());*/
-	Sprite::LoadTexture(0, L"Resources/texture.png");
-	Sprite::LoadTexture(1, L"Resources/house.png");
-	sprite[0] = Sprite::Create(0, { 50.0f,50.0f });
-	sprite[1] = Sprite::Create(1, { 500.0f,500.0f });
-	sprite[0]->SetSize({ 150.5f,150.5f });
-	sprite[1]->SetSize({ 150.5f,150.5f });
-
+	Sprite::LoadTexture(0, L"Resources/Title.png");
+	Sprite::LoadTexture(1, L"Resources/END.png");
+	sprite[0] = Sprite::Create(0, { 0.0f,0.0f });
+	sprite[1] = Sprite::Create(1, { 0.0f,0.0f });
+	
 	XMFLOAT2 SpritePosition = sprite[0]->GetPosition();
 #pragma endregion
 #pragma region//オーディオ
@@ -238,6 +236,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	//カメラの回転角
 	float angle = 0.0f;
 #pragma endregion
+#pragma region//シーン変数
+	int Scene = 1;
+	enum Scene {
+		title,
+		gamePlay,
+		gameOver,
+		gameClear
+	};
+#pragma endregion
 #pragma region//ループ処理
 	while (true) {
 #pragma region//更新処理
@@ -252,122 +259,145 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 		//キーの更新
 		input->Update();
+#pragma region//タイトル
+		if (Scene == title) {
+			if (input->TriggerKey(DIK_SPACE)) {
+				Scene = gamePlay;
+			}
+		}
+#pragma endregion
 		//毎フレーム処理
 		//プレイヤー処理
-		if (MoveNumber == 0) {
-			if (input->TriggerKey(DIK_DOWN) && HighNumber == 0) {
-				initPositionY = PlayerPosition.y;
-				frame = 0;
-				HighNumber = 1;
-				MoveNumber = 1;
-			}
-			if (input->TriggerKey(DIK_UP) && HighNumber == 1) {
-				initPositionY = PlayerPosition.y;
-				frame = 0;
-				HighNumber = 0;
-				MoveNumber = 2;
-			}
+#pragma region//ゲームプレイ中
+		if (Scene == gamePlay) {
+			if (MoveNumber == 0) {
+				if (input->TriggerKey(DIK_DOWN) && HighNumber == 0) {
+					initPositionY = PlayerPosition.y;
+					frame = 0;
+					HighNumber = 1;
+					MoveNumber = 1;
+				}
+				if (input->TriggerKey(DIK_UP) && HighNumber == 1) {
+					initPositionY = PlayerPosition.y;
+					frame = 0;
+					HighNumber = 0;
+					MoveNumber = 2;
+				}
 
-			if (input->TriggerKey(DIK_LEFT) && LaneNumber >= 1) {
-				initPositionX = PlayerPosition.x;
-				LaneNumber--;
-				frame = 0;
-				MoveNumber = 3;
-			}
-			if (input->TriggerKey(DIK_RIGHT) && LaneNumber <= 2) {
-				initPositionX = PlayerPosition.x;
-				LaneNumber++;
-				frame = 0;
-				MoveNumber = 4;
-			}
-		}
-
-	//	//imgui移動処理
-	//	Input::MouseMove mouseMove = input->GetMouseMove();
-
-	///*	if (input->PushMouseLeft()) {
-	//		ImGui::SetNextWindowPos(ImVec2(mouseMove.lX, mouseMove.lY));
-	//	}*/
-
-		//イージングで移動
-		if (MoveNumber == 1) {
-			PlayerPosition.y = initPositionY - 20.0f * easeInSine(frame / frameMax);
-			if (frame != frameMax) {
-				frame = frame + 1;
-			} else {
-				MoveNumber = 0;
-			}
-		}
-		if (MoveNumber == 2) {
-			PlayerPosition.y = initPositionY + 20.0f * easeInSine(frame / frameMax);
-			if (frame != frameMax) {
-				frame = frame + 1;
-			} else {
-				MoveNumber = 0;
-			}
-		}
-
-		if (MoveNumber == 3) {
-			PlayerPosition.x = initPositionX - 15.0f * easeInSine(frame / frameMax);
-			if (frame != frameMax) {
-				frame = frame + 1;
-			} else {
-				MoveNumber = 0;
-			}
-		}
-		if (MoveNumber == 4) {
-			PlayerPosition.x = initPositionX + 15.0f * easeInSine(frame / frameMax);
-			if (frame != frameMax) {
-				frame = frame + 1;
-			} else {
-				MoveNumber = 0;
-			}
-		}
-
-		
-		//ブロック生産
-	/*	if (block->GetIsAlive() == 0) {
-		}*/
-		for (int i = 0; i < _countof(block); i++) {
-			if (BlockPosition[i].z <= PlayerPosition.z - 50) {
-				block[i]->SetIsAlive(0);
-			}
-			if (block[i]->Collide(player) == 1) {
-				block[i]->SetIsAlive(0);
-			}
-			if (block[i]->GetIsAlive() == 0) {
-				ResPornTimer[i]--;
-				if (ResPornTimer[i] <= 0) {
-					ResPornTimer[i] = 50;
-					block[i]->Shot(player);
+				if (input->TriggerKey(DIK_LEFT) && LaneNumber >= 1) {
+					initPositionX = PlayerPosition.x;
+					LaneNumber--;
+					frame = 0;
+					MoveNumber = 3;
+				}
+				if (input->TriggerKey(DIK_RIGHT) && LaneNumber <= 2) {
+					initPositionX = PlayerPosition.x;
+					LaneNumber++;
+					frame = 0;
+					MoveNumber = 4;
 				}
 			}
-		}
 
-		PlayerPosition.z += 1.25;
-		//background->SetPosition(BackPosition);
-		player->SetPosition(PlayerPosition);
-		
-		//移動のやつ
-		//カメラの注視点をプレイヤーの位置に固定
-		target2.m128_f32[2] = PlayerPosition.z - 45;
-		//カメラ追従用の処理
-		target2.m128_f32[0] = background->GetPosition().x;
-		target2.m128_f32[1] = 0;
-		//行列を作り直す
-		rotM = XMMatrixRotationX(XMConvertToRadians(angle));
-		XMVECTOR v;
-		v = XMVector3TransformNormal(v0, rotM);
-		eye2 = target2 + v;
-		matview = XMMatrixLookAtLH((eye2), (target2), XMLoadFloat3(&up));
+			//	//imgui移動処理
+			//	Input::MouseMove mouseMove = input->GetMouseMove();
 
-		player->Update(matview);
-		background->Update(matview);
-		for (int i = 0; i < _countof(block); i++) {
-			block[i]->Update(matview);
+			///*	if (input->PushMouseLeft()) {
+			//		ImGui::SetNextWindowPos(ImVec2(mouseMove.lX, mouseMove.lY));
+			//	}*/
+
+				//イージングで移動
+			if (MoveNumber == 1) {
+				PlayerPosition.y = initPositionY - 20.0f * easeInSine(frame / frameMax);
+				if (frame != frameMax) {
+					frame = frame + 1;
+				} else {
+					MoveNumber = 0;
+				}
+			}
+			if (MoveNumber == 2) {
+				PlayerPosition.y = initPositionY + 20.0f * easeInSine(frame / frameMax);
+				if (frame != frameMax) {
+					frame = frame + 1;
+				} else {
+					MoveNumber = 0;
+				}
+			}
+
+			if (MoveNumber == 3) {
+				PlayerPosition.x = initPositionX - 15.0f * easeInSine(frame / frameMax);
+				if (frame != frameMax) {
+					frame = frame + 1;
+				} else {
+					MoveNumber = 0;
+				}
+			}
+			if (MoveNumber == 4) {
+				PlayerPosition.x = initPositionX + 15.0f * easeInSine(frame / frameMax);
+				if (frame != frameMax) {
+					frame = frame + 1;
+				} else {
+					MoveNumber = 0;
+				}
+			}
+
+
+			//ブロック生産
+		/*	if (block->GetIsAlive() == 0) {
+			}*/
+			for (int i = 0; i < _countof(block); i++) {
+				if (BlockPosition[i].z <= PlayerPosition.z - 50) {
+					block[i]->SetIsAlive(0);
+				}
+				if (block[i]->Collide(player) == 1) {
+					block[i]->SetIsAlive(0);
+				}
+				if (block[i]->GetIsAlive() == 0) {
+					ResPornTimer[i]--;
+					if (ResPornTimer[i] <= 0) {
+						ResPornTimer[i] = 50;
+						block[i]->Shot(player);
+					}
+				}
+			}
+
+			PlayerPosition.z += 1.25;
+
+			if (input->TriggerKey(DIK_R)) {
+				Scene = gameClear;
+			}
+
+#pragma endregion
+
+			//background->SetPosition(BackPosition);
+			player->SetPosition(PlayerPosition);
+
+			//移動のやつ
+			//カメラの注視点をプレイヤーの位置に固定
+			target2.m128_f32[2] = PlayerPosition.z - 45;
+			//カメラ追従用の処理
+			target2.m128_f32[0] = background->GetPosition().x;
+			target2.m128_f32[1] = 0;
+			//行列を作り直す
+			rotM = XMMatrixRotationX(XMConvertToRadians(angle));
+			XMVECTOR v;
+			v = XMVector3TransformNormal(v0, rotM);
+			eye2 = target2 + v;
+			matview = XMMatrixLookAtLH((eye2), (target2), XMLoadFloat3(&up));
+
+			player->Update(matview);
+			background->Update(matview);
+			for (int i = 0; i < _countof(block); i++) {
+				block[i]->Update(matview);
+			}
 		}
 		//ルートシグネチャの設定コマンド
-	
+#pragma region//クリア
+		if (Scene == gameClear) {
+			if (input->TriggerKey(DIK_S)) {
+				Scene = title;
+			}
+		}
+#pragma endregion
 #pragma endregion
 #pragma region//描画
 		//びょうがこまんど
@@ -378,11 +408,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		OutputDebugString(str);
 		swprintf_s(str, L"PlayerPosition.y:%f\n", PlayerPosition.y);
 		OutputDebugString(str);
-		//描画コマンド
-		Player::PreDraw(dxCommon->GetCmdList());
-		Block::PreDraw(dxCommon->GetCmdList());
-		BackGround::PreDraw(dxCommon->GetCmdList());
+	
 		dxCommon->PreDraw();
+		////4.描画コマンドここから
+		dxCommon->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		ImGui::Begin("test");
 		if (ImGui::TreeNode("Debug"))
 		{
@@ -399,25 +428,36 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		ImGui::Indent();
 		ImGui::Unindent();
 		ImGui::End();
-		//プリティ部形状の設定コマンド
-		dxCommon->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		player->Draw();
-		for (int i = 0; i < _countof(block); i++) {
-			block[i]->Draw();
-		}
-		background->Draw();
 		Sprite::PreDraw(dxCommon->GetCmdList());
+		if (Scene == title) {
+			sprite[0]->Draw();
+		}
+		Sprite::PostDraw();
+		//描画コマンド
+		Player::PreDraw(dxCommon->GetCmdList());
+		Block::PreDraw(dxCommon->GetCmdList());
+		BackGround::PreDraw(dxCommon->GetCmdList());
+		//背景
+		if (Scene == gamePlay) {
+			player->Draw();
+			for (int i = 0; i < _countof(block); i++) {
+				block[i]->Draw();
+			}
+			background->Draw();
+		}
 	
-		//sprite[0]->Draw();
+		Sprite::PreDraw(dxCommon->GetCmdList());
+		if (Scene == gameClear) {
+			sprite[1]->Draw();
+		}
 
-		//sprite[1]->Draw();
 		Sprite::PostDraw();
 		////描画コマンド　ここまで
-		dxCommon->PostDraw();
+	
 		Player::PostDraw();
 		Block::PostDraw();
 		BackGround::PostDraw();
-
+		dxCommon->PostDraw();
 #pragma endregion
 	}
 #pragma endregion
