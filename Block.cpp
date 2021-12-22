@@ -606,6 +606,7 @@ void Block::Shot(Player* player){
 	RandLane = rand() % 4;
 	RandHigh = rand() % 2;
 	RandZ = rand() % 500 + 500;
+	scale = { 0.5,0.5,0.5 };
 	this->position.z = position.z + RandZ;
 	//oŒ»êŠ‚ðŒˆ‚ß‚é
 	if (RandHigh == 0) {
@@ -637,10 +638,16 @@ bool Block::Collide(Player* player) {
 	if ((this->position.x == position.x) && (this->position.y == position.y)
 		&& (this->position.z >= position.z) && (this->position.z <= position.z + 15)
 		&& (isAlive == 1)) {
-		return true;
+		scale.x -= 0.01;
+		scale.y -= 0.01;
+		scale.z -= 0.01;
+		this->position.z = position.z + 3.25;
 	}
 
-	else {
+
+	if (scale.z <= 0.0) {
+		return true;
+	} else {
 		return false;
 	}
 

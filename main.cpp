@@ -188,7 +188,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int MoveNumber = 0;
 #pragma endregion
 #pragma region//障害物
-	const int Block_NUM = 30;
+	const int Block_NUM = 5;
 	
 	Block* block[Block_NUM];
 	int ResPornTimer[Block_NUM];
