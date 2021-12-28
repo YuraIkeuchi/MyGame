@@ -6,9 +6,7 @@
 #include <DirectXMath.h>
 #include <d3dx12.h>
 
-/// <summary>
 /// 3Dオブジェクト
-/// </summary>
 class Player {
 private: // エイリアス
 	// Microsoft::WRL::を省略
@@ -41,60 +39,31 @@ private: // 定数
 	static const int vertexCount = planeCount * 3;		// 頂点数
 
 public: // 静的メンバ関数
-	/// <summary>
 	/// 静的初期化
-	/// </summary>
-	/// <param name="device">デバイス</param>
-	/// <param name="window_width">画面幅</param>
-	/// <param name="window_height">画面高さ</param>
-	/// <returns>成否</returns>
 	static bool StaticInitialize(ID3D12Device* device, int window_width, int window_height);
 
-	/// <summary>
 	/// 描画前処理
-	/// </summary>
-	/// <param name="cmdList">描画コマンドリスト</param>
 	static void PreDraw(ID3D12GraphicsCommandList* cmdList);
 
-	/// <summary>
 	/// 描画後処理
-	/// </summary>
 	static void PostDraw();
 
-	/// <summary>
 	/// 3Dオブジェクト生成
-	/// </summary>
-	/// <returns></returns>
 	static Player* Create();
 
-	/// <summary>
 	/// 視点座標の取得
-	/// </summary>
-	/// <returns>座標</returns>
 	static const XMFLOAT3& GetEye() { return eye; }
 
-	/// <summary>
 	/// 視点座標の設定
-	/// </summary>
-	/// <param name="position">座標</param>
 	static void SetEye(XMFLOAT3 eye);
 
-	/// <summary>
 	/// 注視点座標の取得
-	/// </summary>
-	/// <returns>座標</returns>
 	static const XMFLOAT3& GetTarget() { return target; }
 
-	/// <summary>
 	/// 注視点座標の設定
-	/// </summary>
-	/// <param name="position">座標</param>
 	static void SetTarget(XMFLOAT3 target);
 
-	/// <summary>
 	/// ベクトルによる移動
-	/// </summary>
-	/// <param name="move">移動量</param>
 	static void CameraMoveVector(XMFLOAT3 move);
 
 private: // 静的メンバ変数
@@ -141,79 +110,54 @@ private: // 静的メンバ変数
 	//static unsigned short indices[planeCount * 3];
 	static std::vector<unsigned short> indices;
 private:// 静的メンバ関数
-	/// <summary>
 	/// デスクリプタヒープの初期化
-	/// </summary>
-	/// <returns></returns>
 	static bool InitializeDescriptorHeap();
 
-	/// <summary>
 	/// カメラ初期化
-	/// </summary>
-	/// <param name="window_width">画面横幅</param>
-	/// <param name="window_height">画面縦幅</param>
 	static void InitializeCamera(int window_width, int window_height);
 
-	/// <summary>
 	/// グラフィックパイプライン生成
-	/// </summary>
-	/// <returns>成否</returns>
 	static bool InitializeGraphicsPipeline();
 
-	/// <summary>
 	/// テクスチャ読み込み
-	/// </summary>
-	/// <returns>成否</returns>
 	static bool LoadTexture();
 
-	/// <summary>
 	/// モデル作成
-	/// </summary>
 	static void CreateModel();
 
-	/// <summary>
 	/// ビュー行列を更新
-	/// </summary>
 	static void UpdateViewMatrix();
 
 public: // メンバ関数
 	bool Initialize();
-	/// <summary>
 	/// 毎フレーム処理
-	/// </summary>
 	void Update(XMMATRIX& matView);
 
-	/// <summary>
 	/// 描画
-	/// </summary>
 	void Draw();
 	// bool collide(EnemyBullet *enebullet);
-	/// <summary>
 	/// 座標の取得
-	/// </summary>
-	/// <returns>座標</returns>
 	const XMFLOAT3& GetPosition() { return position; }
 	const XMFLOAT3& GetRotaition() { return rotation; }
 	const int& GetHitFlag() { return HitFlag; }
 	const int& GetDamageCount() { return damageCount; }
 
 	const int& GetHp() { return hp; }
-
-	/// <summary>
+	const int& GetDamageTimer() { return damageTimer; }
 	/// 座標の設定
-	/// </summary>
-	/// <param name="position">座標</param>
 	void SetPosition(XMFLOAT3 position) { this->position = position; }
 	void SetRotaition(XMFLOAT3 rotaition) { this->rotation = rotaition; }
 	void SetHitFlag(int HitFlag) { this->HitFlag = HitFlag; }
 	void SetHp(int hp) { this->hp = hp; }
-
+	void SetDamageCount(int damageCount) { this->damageCount = damageCount; }
+	void SetDamageTimer(int damageTimer) { this->damageTimer = damageTimer; }
 private: // メンバ変数
 	ComPtr<ID3D12Resource> constBuff; // 定数バッファ
 	float speed = 0.2f;
 	int HitFlag = 0;
-	int hp = 5;
+	int hp = 20;
 	int damageCount = 0;
+	int damageTimer = 0;
 	// 色
 	XMFLOAT4 color = { 1,1,1,1 };
 	// ローカルスケール

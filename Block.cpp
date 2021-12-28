@@ -603,6 +603,7 @@ void Block::Shot(Player* player){
 		isAlive = 1;
 	}
 	XMFLOAT3 position = player->GetPosition();
+
 	RandLane = rand() % 4;
 	RandHigh = rand() % 2;
 	RandZ = rand() % 500 + 500;
@@ -635,17 +636,24 @@ void Block::Shot(Player* player){
 
 bool Block::Collide(Player* player) {
 	XMFLOAT3 position = player->GetPosition();
+	
 	if ((this->position.x == position.x) && (this->position.y == position.y)
 		&& (this->position.z >= position.z) && (this->position.z <= position.z + 15)
 		&& (isAlive == 1)) {
-		scale.x -= 0.01;
-		scale.y -= 0.01;
-		scale.z -= 0.01;
-		this->position.z = position.z + 3.25;
+		breakCount++;
+		this->position.z = position.z + 4.25;
 	}
 
+	if (breakCount == 15) {
+		scale.x -= 0.25;
+		scale.y -= 0.25;
+		scale.z -= 0.25;
+		breakCount = 0;
+		player->SetHp(player->GetHp() - 1);
+	}
 
 	if (scale.z <= 0.0) {
+		
 		return true;
 	} else {
 		return false;

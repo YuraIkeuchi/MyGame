@@ -146,9 +146,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	SpriteCommonLoadTexture(spriteCommon, 1, L"Resources/house.png", dxCommon->GetDev());*/
 	Sprite::LoadTexture(0, L"Resources/Title.png");
 	Sprite::LoadTexture(1, L"Resources/END.png");
+	Sprite::LoadTexture(2, L"Resources/EnemyHP.png");
 	sprite[0] = Sprite::Create(0, { 0.0f,0.0f });
 	sprite[1] = Sprite::Create(1, { 0.0f,0.0f });
-	
+	sprite[2] = Sprite::Create(2, { 0.0f,0.0f });
 	XMFLOAT2 SpritePosition = sprite[0]->GetPosition();
 #pragma endregion
 #pragma region//オーディオ
@@ -447,8 +448,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 	
 		Sprite::PreDraw(dxCommon->GetCmdList());
+		if (Scene == gamePlay) {
+			sprite[2]->Draw();
+			sprite[2]->SetSize({ (float)(player->GetHp() * 25.8),24.0f });
+		}
+
+		Sprite::PostDraw();
+		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == gameClear) {
 			sprite[1]->Draw();
+		
 		}
 
 		Sprite::PostDraw();

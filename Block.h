@@ -171,5 +171,6 @@ private: // ƒƒ“ƒo•Ï”
 	int RandLane = 0;
 	int RandHigh = 0;
 	int RandZ = 0;
+	int breakCount = 0;
 	Player* player;
 };
