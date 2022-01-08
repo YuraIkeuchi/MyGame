@@ -276,6 +276,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Scene == gamePlay) {
 			if (MoveNumber == 0) {
 				if (input->TriggerKey(DIK_DOWN) && HighNumber == 0) {
+					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
 					initPositionY = PlayerPosition.y;
 					initRotation = PlayerRotation.z;
 					frame = 0;
@@ -283,6 +284,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					MoveNumber = 1;
 				}
 				if (input->TriggerKey(DIK_UP) && HighNumber == 1) {
+					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
 					initPositionY = PlayerPosition.y;
 					initRotation = PlayerRotation.z;
 					frame = 0;
@@ -291,6 +293,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				}
 
 				if (input->TriggerKey(DIK_LEFT) && LaneNumber >= 1) {
+					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
 					initPositionX = PlayerPosition.x;
 					initRotation = PlayerRotation.z;
 					LaneNumber--;
@@ -298,6 +301,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					MoveNumber = 3;
 				}
 				if (input->TriggerKey(DIK_RIGHT) && LaneNumber <= 2) {
+					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
 					initPositionX = PlayerPosition.x;
 					initRotation = PlayerRotation.z;
 					LaneNumber++;
