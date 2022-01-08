@@ -144,7 +144,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// スプライト共通テクスチャ読み込み
 	/*SpriteCommonLoadTexture(spriteCommon, 0, L"Resources/texture.png", dxCommon->GetDev());
 	SpriteCommonLoadTexture(spriteCommon, 1, L"Resources/house.png", dxCommon->GetDev());*/
-	Sprite::LoadTexture(0, L"Resources/Title.png");
+	Sprite::LoadTexture(0, L"Resources/GAMETITLE.png");
 	Sprite::LoadTexture(1, L"Resources/END.png");
 	Sprite::LoadTexture(2, L"Resources/EnemyHP.png");
 	sprite[0] = Sprite::Create(0, { 0.0f,0.0f });
@@ -178,18 +178,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	PlayerPosition = { -65.0f,5.0f,0.0f };
 	player->SetPosition(PlayerPosition);
-
+	XMFLOAT3 PlayerRotation;
+	PlayerRotation = player->GetRotaition();
 	int HitFlag = 0;
 	int LaneNumber = 0;
 	int HighNumber = 0;
 	float frame = 0.0f;
-	float frameMax = 17.0f;
+	float frameMax = 30.0f;
 	float initPositionX = 0.0f;
 	float initPositionY = 0.0f;
+	float initRotation = 0.0f;
 	int MoveNumber = 0;
 #pragma endregion
 #pragma region//障害物
-	const int Block_NUM = 5;
+	const int Block_NUM = 40;
 	
 	Block* block[Block_NUM];
 	int ResPornTimer[Block_NUM];
@@ -238,7 +240,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float angle = 0.0f;
 #pragma endregion
 #pragma region//シーン変数
-	int Scene = 1;
+	int Scene = 0;
 	enum Scene {
 		title,
 		gamePlay,
@@ -254,6 +256,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			break;
 		}
 		PlayerPosition = player->GetPosition();
+		PlayerRotation = player->GetRotaition();
 		SpritePosition = sprite[0]->GetPosition();
 		for (int i = 0; i < _countof(block); i++) {
 			BlockPosition[i] = block[i]->GetPosition();
@@ -274,12 +277,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			if (MoveNumber == 0) {
 				if (input->TriggerKey(DIK_DOWN) && HighNumber == 0) {
 					initPositionY = PlayerPosition.y;
+					initRotation = PlayerRotation.z;
 					frame = 0;
 					HighNumber = 1;
 					MoveNumber = 1;
 				}
 				if (input->TriggerKey(DIK_UP) && HighNumber == 1) {
 					initPositionY = PlayerPosition.y;
+					initRotation = PlayerRotation.z;
 					frame = 0;
 					HighNumber = 0;
 					MoveNumber = 2;
@@ -287,12 +292,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 				if (input->TriggerKey(DIK_LEFT) && LaneNumber >= 1) {
 					initPositionX = PlayerPosition.x;
+					initRotation = PlayerRotation.z;
 					LaneNumber--;
 					frame = 0;
 					MoveNumber = 3;
 				}
 				if (input->TriggerKey(DIK_RIGHT) && LaneNumber <= 2) {
 					initPositionX = PlayerPosition.x;
+					initRotation = PlayerRotation.z;
 					LaneNumber++;
 					frame = 0;
 					MoveNumber = 4;
@@ -309,6 +316,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				//イージングで移動
 			if (MoveNumber == 1) {
 				PlayerPosition.y = initPositionY - 20.0f * easeInSine(frame / frameMax);
+				PlayerRotation.z = initRotation - 360.0f * easeInSine(frame / frameMax);
 				if (frame != frameMax) {
 					frame = frame + 1;
 				} else {
@@ -317,6 +325,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			}
 			if (MoveNumber == 2) {
 				PlayerPosition.y = initPositionY + 20.0f * easeInSine(frame / frameMax);
+				PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
 				if (frame != frameMax) {
 					frame = frame + 1;
 				} else {
@@ -326,6 +335,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 			if (MoveNumber == 3) {
 				PlayerPosition.x = initPositionX - 15.0f * easeInSine(frame / frameMax);
+				PlayerRotation.z = initRotation - 360.0f * easeInSine(frame / frameMax);
 				if (frame != frameMax) {
 					frame = frame + 1;
 				} else {
@@ -334,6 +344,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			}
 			if (MoveNumber == 4) {
 				PlayerPosition.x = initPositionX + 15.0f * easeInSine(frame / frameMax);
+				PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
 				if (frame != frameMax) {
 					frame = frame + 1;
 				} else {
@@ -361,35 +372,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				}
 			}
 
-			PlayerPosition.z += 1.25;
-
+		
 			if (input->TriggerKey(DIK_R)) {
 				Scene = gameClear;
 			}
 
 #pragma endregion
+		}
 
-			//background->SetPosition(BackPosition);
-			player->SetPosition(PlayerPosition);
+		PlayerPosition.z += 1.25;
 
-			//移動のやつ
-			//カメラの注視点をプレイヤーの位置に固定
-			target2.m128_f32[2] = PlayerPosition.z - 45;
-			//カメラ追従用の処理
-			target2.m128_f32[0] = background->GetPosition().x;
-			target2.m128_f32[1] = 0;
-			//行列を作り直す
-			rotM = XMMatrixRotationX(XMConvertToRadians(angle));
-			XMVECTOR v;
-			v = XMVector3TransformNormal(v0, rotM);
-			eye2 = target2 + v;
-			matview = XMMatrixLookAtLH((eye2), (target2), XMLoadFloat3(&up));
+		//background->SetPosition(BackPosition);
+		player->SetPosition(PlayerPosition);
+		player->SetRotaition(PlayerRotation);
 
-			player->Update(matview);
-			background->Update(matview);
-			for (int i = 0; i < _countof(block); i++) {
-				block[i]->Update(matview);
-			}
+		//移動のやつ
+		//カメラの注視点をプレイヤーの位置に固定
+		target2.m128_f32[2] = PlayerPosition.z - 45;
+		//カメラ追従用の処理
+		target2.m128_f32[0] = background->GetPosition().x;
+		target2.m128_f32[1] = 0;
+		//行列を作り直す
+		rotM = XMMatrixRotationX(XMConvertToRadians(angle));
+		XMVECTOR v;
+		v = XMVector3TransformNormal(v0, rotM);
+		eye2 = target2 + v;
+		matview = XMMatrixLookAtLH((eye2), (target2), XMLoadFloat3(&up));
+
+		player->Update(matview);
+		background->Update(matview);
+		for (int i = 0; i < _countof(block); i++) {
+			block[i]->Update(matview);
 		}
 		//ルートシグネチャの設定コマンド
 #pragma region//クリア
@@ -429,11 +442,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		ImGui::Indent();
 		ImGui::Unindent();
 		ImGui::End();
-		Sprite::PreDraw(dxCommon->GetCmdList());
-		if (Scene == title) {
-			sprite[0]->Draw();
-		}
-		Sprite::PostDraw();
+	
 		//描画コマンド
 		Player::PreDraw(dxCommon->GetCmdList());
 		Block::PreDraw(dxCommon->GetCmdList());
@@ -444,9 +453,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			for (int i = 0; i < _countof(block); i++) {
 				block[i]->Draw();
 			}
-			background->Draw();
 		}
 	
+		background->Draw();
+
+		Sprite::PreDraw(dxCommon->GetCmdList());
+		if (Scene == title) {
+			sprite[0]->Draw();
+		}
+		Sprite::PostDraw();
 		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == gamePlay) {
 			sprite[2]->Draw();

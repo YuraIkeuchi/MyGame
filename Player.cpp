@@ -333,7 +333,7 @@ bool Player::LoadTexture() {
 
 	result = LoadFromWICFile(
 		//L"Resources/mameneko.jpg", WIC_FLAGS_NONE,
-		L"Resources/chr_sword/chr_sword.png", WIC_FLAGS_NONE,
+		L"Resources/Player/Player.png", WIC_FLAGS_NONE,
 		&metadata, scratchImg);
 	if (FAILED(result)) {
 		return result;
@@ -401,7 +401,7 @@ void Player::CreateModel() {
 	//ファイルストリーム
 	std::ifstream file;
 	//.objファイルを開く
-	file.open("Resources/chr_sword/chr_sword.obj");
+	file.open("Resources/Player/Player.obj");
 	//ファイルオープン失敗をチャック
 	if (file.fail()) {
 		assert(0);

@@ -332,7 +332,7 @@ bool BackGround::LoadTexture()
 	ScratchImage scratchImg{};
 
 	result = LoadFromWICFile(
-		L"Resources/8cc00185e48f9eadcd3b6cf61673451f_t.jpeg", WIC_FLAGS_NONE,
+		L"Resources/Background.png", WIC_FLAGS_NONE,
 		&metadata, scratchImg);
 	if (FAILED(result)) {
 		return result;
@@ -402,10 +402,10 @@ void BackGround::CreateModel()
 	const float radius = 10.0f;
 	//頂点データ
 	VertexPosNormalUv vertices[] = {
-		{{-110.0f,-110.0f,0.0f},{0,0,0}, {0.0f,1.0f}},
-		{{-110.0f,+110.0f,0.0f },{0,0,0},{0.0f,0.0f}},
-		{{+110.0f,-110.0f,0.0f},{0,0,0},{1.0f,1.0f}},
-		{{+110.0f,+110.0f,0.0f},{0,0,0},{1.0f,0.0f}},
+		{{-250.0f,-250.0f,0.0f},{0,0,0}, {0.0f,1.0f}},
+		{{-250.0f,+250.0f,0.0f },{0,0,0},{0.0f,0.0f}},
+		{{+250.0f,-250.0f,0.0f},{0,0,0},{1.0f,1.0f}},
+		{{+250.0f,+250.0f,0.0f},{0,0,0},{1.0f,0.0f}},
 	};
 
 	unsigned short indices[] = {
