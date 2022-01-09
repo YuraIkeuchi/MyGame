@@ -108,10 +108,10 @@ private: // 静的メンバ変数
 	// インデックスバッファビュー
 	static D3D12_INDEX_BUFFER_VIEW ibView;
 	// 頂点データ配列
-	static VertexPosNormalUv vertices[vertexCount];
+	static std::vector<VertexPosNormalUv> vertices;
 	// 頂点インデックス配列
-	static unsigned short indices[planeCount * 3];
-
+	//static unsigned short indices[planeCount * 3];
+	static std::vector<unsigned short> indices;
 private:// 静的メンバ関数
 	/// デスクリプタヒープの初期化
 	static bool InitializeDescriptorHeap();
@@ -158,9 +158,9 @@ private: // メンバ変数
 	// 色
 	XMFLOAT4 color = { 1,1,1,1 };
 	// ローカルスケール
-	XMFLOAT3 scale = { 0.5,0.5,0.5 };
+	XMFLOAT3 scale = { 10.5,10.5,10.5 };
 	// X,Y,Z軸回りのローカル回転角
-	XMFLOAT3 rotation = { 0,0,0 };
+	XMFLOAT3 rotation = { 0,90,0 };
 	// ローカル座標
 	XMFLOAT3 position = { 0,0,100 };
 	// ローカルワールド変換行列

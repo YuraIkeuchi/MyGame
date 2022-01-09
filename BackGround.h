@@ -159,7 +159,7 @@ private: // メンバ変数
 	// X,Y,Z軸回りのローカル回転角
 	XMFLOAT3 rotation = { 0,0,90 };
 	// ローカル座標
-	XMFLOAT3 position = { -40,-50,100 };
+	XMFLOAT3 position = { -40,-50,180 };
 	// ローカルワールド変換行列
 	XMMATRIX matWorld;
 	// 親オブジェクト

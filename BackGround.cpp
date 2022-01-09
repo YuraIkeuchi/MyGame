@@ -551,7 +551,7 @@ void BackGround::Update(XMMATRIX& matView)
 	constMap->color = color;
 	constMap->mat = matWorld * matView * matProjection;	// s—ñ‚Ì‡¬
 	constBuff->Unmap(0, nullptr);
-	position.z += 1.25f;
+	position.z += 0.75f;
 }
 
 void BackGround::Draw()

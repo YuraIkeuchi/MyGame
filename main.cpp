@@ -18,7 +18,7 @@
 #include "Block.h"
 #include "BackGround.h"
 #include "Player.h"
-
+#include "ParticleManager.h"
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib,"d3d12.lib")
 
@@ -145,7 +145,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	/*SpriteCommonLoadTexture(spriteCommon, 0, L"Resources/texture.png", dxCommon->GetDev());
 	SpriteCommonLoadTexture(spriteCommon, 1, L"Resources/house.png", dxCommon->GetDev());*/
 	Sprite::LoadTexture(0, L"Resources/GAMETITLE.png");
-	Sprite::LoadTexture(1, L"Resources/END.png");
+	Sprite::LoadTexture(1, L"Resources/GAMECLEAR.png");
 	Sprite::LoadTexture(2, L"Resources/EnemyHP.png");
 	sprite[0] = Sprite::Create(0, { 0.0f,0.0f });
 	sprite[1] = Sprite::Create(1, { 0.0f,0.0f });
@@ -191,7 +191,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int MoveNumber = 0;
 #pragma endregion
 #pragma region//障害物
-	const int Block_NUM = 40;
+	const int Block_NUM = 5;
 	
 	Block* block[Block_NUM];
 	int ResPornTimer[Block_NUM];
@@ -223,6 +223,31 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	background = BackGround::Create();
 	background->Update(matview);
+#pragma endregion
+#pragma region//パーティクル
+	const int Particle_NUM = 40;
+	ParticleManager* particle[Particle_NUM];
+	int particleAlive[Particle_NUM];
+	XMFLOAT3 particlePosition[Particle_NUM];
+
+	float particleXG[Particle_NUM];
+	float particleYG[Particle_NUM];
+	for (int i = 0; i < _countof(particle); i++) {
+		if (!particle[i]->StaticInitialize(dxCommon->GetDev(), WinApp::window_width, WinApp::window_height)) {
+			assert(0);
+			return 1;
+		}
+		//XMFLOAT3 BackPosition;
+		//BackPosition = background->GetPosition();
+
+		particle[i] = ParticleManager::Create();
+		particle[i]->Update(matview);
+		particleAlive[i] = 0;
+		particlePosition[i] = particle[i]->GetPosition();
+		particleXG[i] = 0.0f;
+		particleYG[i] = 0.0f;
+	}
+	
 #pragma endregion
 #pragma region//キー処理
 	//キー処理
@@ -257,6 +282,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		}
 		PlayerPosition = player->GetPosition();
 		PlayerRotation = player->GetRotaition();
+		for (int i = 0; i < _countof(particle); i++) {
+			particlePosition[i] = particle[i]->GetPosition();
+		}
 		SpritePosition = sprite[0]->GetPosition();
 		for (int i = 0; i < _countof(block); i++) {
 			BlockPosition[i] = block[i]->GetPosition();
@@ -346,6 +374,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					MoveNumber = 0;
 				}
 			}
+
 			if (MoveNumber == 4) {
 				PlayerPosition.x = initPositionX + 15.0f * easeInSine(frame / frameMax);
 				PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
@@ -356,17 +385,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				}
 			}
 
-
-			//ブロック生産
-		/*	if (block->GetIsAlive() == 0) {
-			}*/
 			for (int i = 0; i < _countof(block); i++) {
+
 				if (BlockPosition[i].z <= PlayerPosition.z - 50) {
 					block[i]->SetIsAlive(0);
 				}
+
 				if (block[i]->Collide(player) == 1) {
 					block[i]->SetIsAlive(0);
+					if (ResPornTimer[i] == 50) {
+						for (int j = 0; j < _countof(particle); j++) {
+							particlePosition[j] = BlockPosition[i];
+							particleAlive[j] = 1;
+							particleXG[j] = rand() % 6 - 3;
+							particleYG[j] = rand() % 6;
+						}
+					}
 				}
+
 				if (block[i]->GetIsAlive() == 0) {
 					ResPornTimer[i]--;
 					if (ResPornTimer[i] <= 0) {
@@ -376,7 +412,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				}
 			}
 
-		
+			for (int i = 0; i < _countof(particle); i++) {
+				if (particleAlive[i] == 1) {
+					particleYG[i] -= 0.2;
+					particlePosition[i].x += particleXG[i];
+					particlePosition[i].y += particleYG[i];
+				}
+			}
+
 			if (input->TriggerKey(DIK_R)) {
 				Scene = gameClear;
 			}
@@ -384,12 +427,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma endregion
 		}
 
-		PlayerPosition.z += 1.25;
+		PlayerPosition.z += 0.75;
 
 		//background->SetPosition(BackPosition);
 		player->SetPosition(PlayerPosition);
 		player->SetRotaition(PlayerRotation);
-
+		for (int i = 0; i < _countof(particle); i++) {
+			particle[i]->SetPosition(particlePosition[i]);
+		}
 		//移動のやつ
 		//カメラの注視点をプレイヤーの位置に固定
 		target2.m128_f32[2] = PlayerPosition.z - 45;
@@ -407,6 +452,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		background->Update(matview);
 		for (int i = 0; i < _countof(block); i++) {
 			block[i]->Update(matview);
+		}
+		for (int i = 0; i < _countof(particle); i++) {
+			particle[i]->Update(matview);
 		}
 		//ルートシグネチャの設定コマンド
 #pragma region//クリア
@@ -438,9 +486,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				ImGui::Indent();
 				ImGui::SliderFloat("Position.x", &PlayerPosition.x, 50, -50);
 				ImGui::SliderFloat("Position.y", &PlayerPosition.y, 50, -50);
+				ImGui::Text("%d", ResPornTimer[0]);
 				ImGui::Unindent();
 				ImGui::TreePop();
 			}
+
+			/*if (ImGui::TreeNode("particle"))
+			{
+				ImGui::Indent();
+				ImGui::SliderFloat("Position.x", &particlePosition.x, 50, -50);
+				ImGui::SliderFloat("Position.y", &particlePosition.y, 50, -50);
+				ImGui::Unindent();
+				ImGui::TreePop();
+			}*/
 			ImGui::TreePop();
 		}
 		ImGui::Indent();
@@ -451,11 +509,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Player::PreDraw(dxCommon->GetCmdList());
 		Block::PreDraw(dxCommon->GetCmdList());
 		BackGround::PreDraw(dxCommon->GetCmdList());
+		ParticleManager::PreDraw(dxCommon->GetCmdList());
 		//背景
 		if (Scene == gamePlay) {
 			player->Draw();
 			for (int i = 0; i < _countof(block); i++) {
 				block[i]->Draw();
+			}
+			for (int i = 0; i < _countof(particle); i++) {
+				if (particleAlive[i] == 1) {
+					particle[i]->Draw();
+				}
 			}
 		}
 	
@@ -485,6 +549,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Player::PostDraw();
 		Block::PostDraw();
 		BackGround::PostDraw();
+		ParticleManager::PostDraw();
 		dxCommon->PostDraw();
 #pragma endregion
 	}
@@ -504,6 +569,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	}
 	delete player;
 	delete background;
+	for (int i = 0; i < _countof(particle); i++) {
+		delete particle[i];
+	}
 	winApp = nullptr;
 	return 0;
 #pragma endregion
