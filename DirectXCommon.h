@@ -16,6 +16,7 @@ private:
 	// Microsoft::WRL::‚ğÈ—ª
 	template <class T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 public:
+	void ClearDepthBuffer();
 	void Finalize();
 	//‰Šú‰»
 	void Initialize(WinApp* winApp);

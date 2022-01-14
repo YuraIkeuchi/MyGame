@@ -15,10 +15,9 @@
 #include "DirectXCommon.h"
 #include "Sprite.h"
 #include "Audio.h"
-#include "Block.h"
-#include "BackGround.h"
-#include "Player.h"
-#include "ParticleManager.h"
+#include "Model.h"
+#include "Object3d.h"
+
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib,"d3d12.lib")
 
@@ -40,45 +39,6 @@ LRESULT WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 //テクスチャの最大枚数
 const int SpriteSRVCount = 512;
 #pragma region//構造体
-struct PipelineSet {
-	ComPtr<ID3D12PipelineState> pipelinestate;
-	ComPtr<ID3D12RootSignature> rootsignature;
-};
-struct Object3d {
-	ID3D12Resource* constBuff;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE cpuDescHandleCBV;
-
-	D3D12_GPU_DESCRIPTOR_HANDLE gpuDescHandleCBV;
-
-	XMFLOAT3 scale = { 1,1,1 };
-	XMFLOAT3 rotation = { 0,0,0 };
-	XMFLOAT3 position = { 0,0,0 };
-
-	XMMATRIX matWorld;
-
-	Object3d* parent = nullptr;
-};
-
-struct VertexPosUv {
-	XMFLOAT3 pos;
-	XMFLOAT2 uv;
-};
-
-
-//定数バッファ用データ構造体
-struct ConstBufferData {
-	XMFLOAT4 color;
-	XMMATRIX mat;
-};
-
-//頂点データ構造体
-struct Vertex
-{
-	XMFLOAT3 pos;
-	XMFLOAT3 normal;
-	XMFLOAT2 uv;
-};
 
 #pragma endregion
 #pragma region//関数
@@ -147,10 +107,51 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	Sprite::LoadTexture(0, L"Resources/GAMETITLE.png");
 	Sprite::LoadTexture(1, L"Resources/GAMECLEAR.png");
 	Sprite::LoadTexture(2, L"Resources/EnemyHP.png");
+	Sprite::LoadTexture(3, L"Resources/Background.png");
 	sprite[0] = Sprite::Create(0, { 0.0f,0.0f });
 	sprite[1] = Sprite::Create(1, { 0.0f,0.0f });
 	sprite[2] = Sprite::Create(2, { 0.0f,0.0f });
+	sprite[3] = Sprite::Create(3, { 0.0f,0.0f });
 	XMFLOAT2 SpritePosition = sprite[0]->GetPosition();
+#pragma endregion
+#pragma region//モデル読み込み
+
+	if (!Object3d::StaticInitialize(dxCommon->GetDev(), WinApp::window_width, WinApp::window_height)) {
+		assert(0);
+		return 0;
+	}
+	const int Block_NUM = 25;
+	const int Particle_NUM = 20;
+	Model* Player_model = Model::LoadFromOBJ("Player");
+	Object3d* Player_object = Object3d::Create();
+	Player_object->SetModel(Player_model);
+	//障害物
+	Model* Block_model[Block_NUM];
+	for (int i = 0; i < Block_NUM; i++) {
+		Block_model[i] = Model::LoadFromOBJ("Block");
+	}
+	Object3d* Block_object[Block_NUM];
+	XMFLOAT3 BlockScale[Block_NUM];
+	for (int i = 0; i < Block_NUM; i++) {
+		Block_object[i] = Object3d::Create();
+		Block_object[i]->SetModel(Block_model[i]);
+		BlockScale[i] = { 3.0f,3.0f,3.0f };
+		Block_object[i]->SetScale({ BlockScale[i] });
+	}
+	//パーティクル
+	Model* Particle_model[Particle_NUM];
+	for (int i = 0; i < Particle_NUM; i++) {
+		Particle_model[i] = Model::LoadFromOBJ("Particle");
+	}
+	Object3d* Particle_object[Particle_NUM];
+	XMFLOAT3 ParticleScale[Particle_NUM];
+	for (int i = 0; i < Particle_NUM; i++) {
+		Particle_object[i] = Object3d::Create();
+		Particle_object[i]->SetModel(Particle_model[i]);
+		ParticleScale[i] = { 3.0f,3.0f,3.0f };
+		Particle_object[i]->SetScale({ ParticleScale[i] });
+	}
+
 #pragma endregion
 #pragma region//オーディオ
 	//オーディオ
@@ -164,22 +165,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	audio->LoopWave(0, 0.5f);
 #pragma endregion
 #pragma region//プレイヤー
-	Player* player;
-
-	if (!player->StaticInitialize(dxCommon->GetDev(), WinApp::window_width, WinApp::window_height)) {
-		assert(0);
-		return 1;
-	}
-	player = Player::Create();
-	player->Update(matview);
-
 	XMFLOAT3 PlayerPosition;
-	PlayerPosition = player->GetPosition();
-
 	PlayerPosition = { -65.0f,5.0f,0.0f };
-	player->SetPosition(PlayerPosition);
 	XMFLOAT3 PlayerRotation;
-	PlayerRotation = player->GetRotaition();
+	PlayerRotation = { 0,180,0 };
+	Player_object->SetPosition(PlayerPosition);
+	Player_object->SetRotation(PlayerRotation);
+	Player_object->SetScale({ 3.0f,3.0f,3.0f });
 	int HitFlag = 0;
 	int LaneNumber = 0;
 	int HighNumber = 0;
@@ -189,65 +181,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float initPositionY = 0.0f;
 	float initRotation = 0.0f;
 	int MoveNumber = 0;
+	int hp = 20;
 #pragma endregion
 #pragma region//障害物
-	const int Block_NUM = 25;
-	
-	Block* block[Block_NUM];
 	int ResPornTimer[Block_NUM];
 	XMFLOAT3 BlockPosition[Block_NUM];
-	for (int i = 0; i < _countof(block); i++) {
-		if (!block[i]->StaticInitialize(dxCommon->GetDev(), WinApp::window_width, WinApp::window_height)) {
-			assert(0);
-			return 1;
-		}
-
-		block[i] = Block::Create();
-		block[i]->Update(matview);
-		block[i]->Shot(player);
+	int BlockisAlive[Block_NUM];
+	int BlockRandLane[Block_NUM];
+	int BlockRandHigh[Block_NUM];
+	int BlockRandZ[Block_NUM];
+	int BlockbreakCount[Block_NUM];
+	for (int i = 0; i < Block_NUM; i++) {
 		ResPornTimer[i] = 50;
-		BlockPosition[i] = block[i]->GetPosition();
+		BlockisAlive[i] = 0;
+		BlockRandLane[i] = 0;
+		BlockRandHigh[i] = 0;
+		BlockRandZ[i] = 0;
+		BlockbreakCount[i] = 0;
 	}
-
-	
-	
-#pragma endregion
-#pragma region//背景
-	BackGround* background;
-	if (!background->StaticInitialize(dxCommon->GetDev(), WinApp::window_width, WinApp::window_height)) {
-		assert(0);
-		return 1;
-	}
-	//XMFLOAT3 BackPosition;
-	//BackPosition = background->GetPosition();
-
-	background = BackGround::Create();
-	background->Update(matview);
 #pragma endregion
 #pragma region//パーティクル
-	const int Particle_NUM = 20;
-	ParticleManager* particle[Particle_NUM];
 	int particleAlive[Particle_NUM];
 	XMFLOAT3 particlePosition[Particle_NUM];
 
 	float particleXG[Particle_NUM];
 	float particleYG[Particle_NUM];
-	for (int i = 0; i < _countof(particle); i++) {
-		if (!particle[i]->StaticInitialize(dxCommon->GetDev(), WinApp::window_width, WinApp::window_height)) {
-			assert(0);
-			return 1;
-		}
-		//XMFLOAT3 BackPosition;
-		//BackPosition = background->GetPosition();
-
-		particle[i] = ParticleManager::Create();
-		particle[i]->Update(matview);
+	for (int i = 0; i < Particle_NUM; i++) {
 		particleAlive[i] = 0;
-		particlePosition[i] = particle[i]->GetPosition();
 		particleXG[i] = 0.0f;
 		particleYG[i] = 0.0f;
 	}
-	
+
 #pragma endregion
 #pragma region//キー処理
 	//キー処理
@@ -280,15 +244,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (winApp->ProcessMessage()) {
 			break;
 		}
-		PlayerPosition = player->GetPosition();
-		PlayerRotation = player->GetRotaition();
-		for (int i = 0; i < _countof(particle); i++) {
-			particlePosition[i] = particle[i]->GetPosition();
-		}
+
 		SpritePosition = sprite[0]->GetPosition();
-		for (int i = 0; i < _countof(block); i++) {
-			BlockPosition[i] = block[i]->GetPosition();
-		}
+
 		//キーの更新
 		input->Update();
 #pragma region//タイトル
@@ -311,6 +269,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					HighNumber = 1;
 					MoveNumber = 1;
 				}
+
 				if (input->TriggerKey(DIK_UP) && HighNumber == 1) {
 					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
 					initPositionY = PlayerPosition.y;
@@ -345,7 +304,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			//		ImGui::SetNextWindowPos(ImVec2(mouseMove.lX, mouseMove.lY));
 			//	}*/
 
-				//イージングで移動
+			//イージングで移動
 			if (MoveNumber == 1) {
 				PlayerPosition.y = initPositionY - 20.0f * easeInSine(frame / frameMax);
 				PlayerRotation.z = initRotation - 360.0f * easeInSine(frame / frameMax);
@@ -355,6 +314,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					MoveNumber = 0;
 				}
 			}
+
 			if (MoveNumber == 2) {
 				PlayerPosition.y = initPositionY + 20.0f * easeInSine(frame / frameMax);
 				PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
@@ -384,17 +344,57 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					MoveNumber = 0;
 				}
 			}
-
-			for (int i = 0; i < _countof(block); i++) {
-
+			//ブロック出現
+			for (int i = 0; i < Block_NUM; i++) {
+				if (BlockisAlive[i] == 0) {
+					ResPornTimer[i]--;
+					if (ResPornTimer[i] <= 0) {
+						ResPornTimer[i] = 50;
+						BlockisAlive[i] = 1;
+						BlockRandLane[i] = rand() % 4;
+						BlockRandHigh[i] = rand() % 2;
+						BlockRandZ[i] = rand() % 500 + 500;
+						BlockPosition[i].z = PlayerPosition.z + BlockRandZ[i];
+						if (BlockRandHigh[i] == 0) {
+							BlockPosition[i].y = 5.0f;
+						} else if (BlockRandHigh[i] == 1) {
+							BlockPosition[i].y = -15.0f;
+						}
+						if (BlockRandLane[i] == 0) {
+							BlockPosition[i].x = -65.0f;
+						} else if (BlockRandLane[i] == 1) {
+							BlockPosition[i].x = -50.0f;
+						} else if (BlockRandLane[i] == 2) {
+							BlockPosition[i].x = -35.0f;
+						} else if (BlockRandLane[i] == 3) {
+							BlockPosition[i].x = -20.0f;
+						}
+					}
+				}
+				//一定の距離で消滅
 				if (BlockPosition[i].z <= PlayerPosition.z - 50) {
-					block[i]->SetIsAlive(0);
+					BlockisAlive[i] = 0;
+				}
+				//プレイヤーとの当たり判定
+				if ((BlockPosition[i].x == PlayerPosition.x) && (BlockPosition[i].y == PlayerPosition.y)
+					&& (BlockPosition[i].z >= PlayerPosition.z) && (BlockPosition[i].z <= PlayerPosition.z + 15)
+					&& (BlockisAlive[i] == 1)) {
+					BlockbreakCount[i]++;
+					BlockPosition[i].z = PlayerPosition.z + 4.25;
 				}
 
-				if (block[i]->Collide(player) == 1) {
-					block[i]->SetIsAlive(0);
+				if (BlockbreakCount[i] == 15) {
+					BlockScale[i].x -= 1.0f;
+					BlockScale[i].y -= 1.0f;
+					BlockScale[i].z -= 1.0f;
+					BlockbreakCount[i] = 0;
+					hp--;
+				}
+
+				if (BlockScale[i].z <= 0.0f) {
+					BlockisAlive[i] = 0;
 					if (ResPornTimer[i] == 50) {
-						for (int j = 0; j < _countof(particle); j++) {
+						for (int j = 0; j < Particle_NUM; j++) {
 							particlePosition[j] = BlockPosition[i];
 							particleAlive[j] = 1;
 							particleXG[j] = rand() % 6 - 3;
@@ -402,17 +402,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 						}
 					}
 				}
-
-				if (block[i]->GetIsAlive() == 0) {
-					ResPornTimer[i]--;
-					if (ResPornTimer[i] <= 0) {
-						ResPornTimer[i] = 50;
-						block[i]->Shot(player);
-					}
-				}
 			}
-
-			for (int i = 0; i < _countof(particle); i++) {
+			//パーティクル発生
+			for (int i = 0; i < Particle_NUM; i++) {
 				if (particleAlive[i] == 1) {
 					particleYG[i] -= 0.2;
 					particlePosition[i].x += particleXG[i];
@@ -423,18 +415,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			if (input->TriggerKey(DIK_R)) {
 				Scene = gameClear;
 			}
-
 #pragma endregion
 		}
 
 		PlayerPosition.z += 0.75;
 
-		//background->SetPosition(BackPosition);
-		player->SetPosition(PlayerPosition);
-		player->SetRotaition(PlayerRotation);
-		for (int i = 0; i < _countof(particle); i++) {
-			particle[i]->SetPosition(particlePosition[i]);
-		}
 		//移動のやつ
 		//カメラの注視点をプレイヤーの位置に固定
 		target2.m128_f32[2] = PlayerPosition.z - 45;
@@ -447,14 +432,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		v = XMVector3TransformNormal(v0, rotM);
 		eye2 = target2 + v;
 		matview = XMMatrixLookAtLH((eye2), (target2), XMLoadFloat3(&up));
-
-		player->Update(matview);
-		background->Update(matview);
-		for (int i = 0; i < _countof(block); i++) {
-			block[i]->Update(matview);
+		Player_object->SetPosition(PlayerPosition);
+		Player_object->SetRotation(PlayerRotation);
+		Player_object->Update(matview);
+		for (int i = 0; i < Block_NUM; i++) {
+			Block_object[i]->SetPosition(BlockPosition[i]);
+			Block_object[i]->SetScale(BlockScale[i]);
+			Block_object[i]->Update(matview);
 		}
-		for (int i = 0; i < _countof(particle); i++) {
-			particle[i]->Update(matview);
+
+		for (int i = 0; i < Particle_NUM; i++) {
+			Particle_object[i]->SetPosition(particlePosition[i]);
+			Particle_object[i]->Update(matview);
 		}
 		//ルートシグネチャの設定コマンド
 #pragma region//クリア
@@ -467,17 +456,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma endregion
 #pragma region//描画
 		//びょうがこまんど
-		//x,y座標のデバッグログ
-		wchar_t str[256];
-	
-		swprintf_s(str, L"PlayerPosition.x:%f\n", PlayerPosition.x);
-		OutputDebugString(str);
-		swprintf_s(str, L"PlayerPosition.y:%f\n", PlayerPosition.y);
-		OutputDebugString(str);
-	
 		dxCommon->PreDraw();
+
+		Sprite::PreDraw(dxCommon->GetCmdList());
+		// 背景スプライト描画
+		sprite[3]->Draw();
+		dxCommon->ClearDepthBuffer();
+		// スプライト描画後処理
+		Sprite::PostDraw();
+
 		////4.描画コマンドここから
 		dxCommon->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		Object3d::PreDraw(dxCommon->GetCmdList());
+
 		ImGui::Begin("test");
 		if (ImGui::TreeNode("Debug"))
 		{
@@ -486,44 +477,47 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				ImGui::Indent();
 				ImGui::SliderFloat("Position.x", &PlayerPosition.x, 50, -50);
 				ImGui::SliderFloat("Position.y", &PlayerPosition.y, 50, -50);
-				ImGui::Text("%d", ResPornTimer[0]);
+				ImGui::SliderFloat("Position.y", &PlayerPosition.z, 50, -50);
 				ImGui::Unindent();
 				ImGui::TreePop();
 			}
 
-			/*if (ImGui::TreeNode("particle"))
+			if (ImGui::TreeNode("Block"))
 			{
 				ImGui::Indent();
-				ImGui::SliderFloat("Position.x", &particlePosition.x, 50, -50);
-				ImGui::SliderFloat("Position.y", &particlePosition.y, 50, -50);
+				ImGui::SliderFloat("Position.x", &BlockPosition[0].x, 50, -50);
+				ImGui::SliderFloat("Position.y", &BlockPosition[0].y, 50, -50);
+				ImGui::SliderFloat("Position.z", &BlockPosition[0].z, 50, -50);
+				ImGui::Text("%d", ResPornTimer[0]);
+				ImGui::Text("%d", BlockisAlive[0]);
 				ImGui::Unindent();
 				ImGui::TreePop();
-			}*/
+			}
+
 			ImGui::TreePop();
 		}
 		ImGui::Indent();
 		ImGui::Unindent();
 		ImGui::End();
-	
+
 		//描画コマンド
-		Player::PreDraw(dxCommon->GetCmdList());
-		Block::PreDraw(dxCommon->GetCmdList());
-		BackGround::PreDraw(dxCommon->GetCmdList());
-		ParticleManager::PreDraw(dxCommon->GetCmdList());
+
 		//背景
 		if (Scene == gamePlay) {
-			player->Draw();
-			for (int i = 0; i < _countof(block); i++) {
-				block[i]->Draw();
+
+			Player_object->Draw();
+
+			for (int i = 0; i < Block_NUM; i++) {
+				Block_object[i]->Draw();
 			}
-			for (int i = 0; i < _countof(particle); i++) {
+
+			for (int i = 0; i < Particle_NUM; i++) {
 				if (particleAlive[i] == 1) {
-					particle[i]->Draw();
+					Particle_object[i]->Draw();
 				}
 			}
 		}
-	
-		background->Draw();
+
 
 		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == title) {
@@ -533,23 +527,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == gamePlay) {
 			sprite[2]->Draw();
-			sprite[2]->SetSize({ (float)(player->GetHp() * 25.8),24.0f });
+			sprite[2]->SetSize({ (float)(hp * 25.8),24.0f });
 		}
 
 		Sprite::PostDraw();
 		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == gameClear) {
 			sprite[1]->Draw();
-		
+
 		}
 
 		Sprite::PostDraw();
 		////描画コマンド　ここまで
-	
-		Player::PostDraw();
-		Block::PostDraw();
-		BackGround::PostDraw();
-		ParticleManager::PostDraw();
+		Object3d::PostDraw();
 		dxCommon->PostDraw();
 #pragma endregion
 	}
@@ -562,16 +552,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	//入力開放
 	delete input;
 	delete audio;
+	delete Player_model;
+	delete Player_object;
+	for (int i = 0; i < Block_NUM; i++) {
+		delete Block_model[i];
+	}
+	for (int i = 0; i < Block_NUM; i++) {
+		delete Block_object[i];
+	}
+	for (int i = 0; i < Particle_NUM; i++) {
+		delete Particle_model[i];
+	}
+	for (int i = 0; i < Particle_NUM; i++) {
+		delete Particle_object[i];
+	}
 	delete winApp;
 	delete dxCommon;
-	for (int i = 0; i < _countof(block); i++) {
-		delete block[i];
-	}
-	delete player;
-	delete background;
-	for (int i = 0; i < _countof(particle); i++) {
-		delete particle[i];
-	}
+
 	winApp = nullptr;
 	return 0;
 #pragma endregion

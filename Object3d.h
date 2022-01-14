@@ -5,10 +5,11 @@
 #include <d3d12.h>
 #include <DirectXMath.h>
 #include <d3dx12.h>
-#include "Player.h"
+#include<string>
+#include"Model.h"
 
 /// 3Dオブジェクト
-class Block
+class Object3d
 {
 private: // エイリアス
 	// Microsoft::WRL::を省略
@@ -29,21 +30,23 @@ public: // サブクラス
 	};
 
 	// 定数バッファ用データ構造体
-	struct ConstBufferData
+	struct ConstBufferDataB0
 	{
-		XMFLOAT4 color;	// 色 (RGBA)
+		//XMFLOAT4 color;	// 色 (RGBA)
 		XMMATRIX mat;	// ３Ｄ変換行列
 	};
 
-private: // 定数
-	static const int division = 50;					// 分割数
-	static const float radius;				// 底面の半径
-	static const float prizmHeight;			// 柱の高さ
-	static const int planeCount = division * 2 + division * 2;		// 面の数
-	static const int vertexCount = planeCount * 3;		// 頂点数
+	struct ConstBufferDataB1
+	{
+		XMFLOAT3 ambient;
+		float pad1;
+		XMFLOAT3 diffuse;
+		float pad2;
+		XMFLOAT3 specular;
+		float alpha;
+	};
 
 public: // 静的メンバ関数
-	/// 静的初期化
 	static bool StaticInitialize(ID3D12Device* device, int window_width, int window_height);
 
 	/// 描画前処理
@@ -52,8 +55,8 @@ public: // 静的メンバ関数
 	/// 描画後処理
 	static void PostDraw();
 
-	/// 3Dオブジェクト生成
-	static Block* Create();
+	/// 3Dオブジェクト生
+	static Object3d* Create();
 
 	/// 視点座標の取得
 	static const XMFLOAT3& GetEye() { return eye; }
@@ -69,6 +72,8 @@ public: // 静的メンバ関数
 
 	/// ベクトルによる移動
 	static void CameraMoveVector(XMFLOAT3 move);
+
+	static void LoadMaterial(const std::string& directoryPath, const std::string& filename);
 
 private: // 静的メンバ変数
 	// デバイス
@@ -108,10 +113,14 @@ private: // 静的メンバ変数
 	// インデックスバッファビュー
 	static D3D12_INDEX_BUFFER_VIEW ibView;
 	// 頂点データ配列
+	//static VertexPosNormalUv vertices[vertexCount];
 	static std::vector<VertexPosNormalUv> vertices;
 	// 頂点インデックス配列
 	//static unsigned short indices[planeCount * 3];
 	static std::vector<unsigned short> indices;
+	//マテリアル
+
+
 private:// 静的メンバ関数
 	/// デスクリプタヒープの初期化
 	static bool InitializeDescriptorHeap();
@@ -123,10 +132,7 @@ private:// 静的メンバ関数
 	static bool InitializeGraphicsPipeline();
 
 	/// テクスチャ読み込み
-	static bool LoadTexture();
-
-	/// モデル作成
-	static void CreateModel();
+	static bool LoadTexture(const std::string& directoryPath, const std::string& filename);
 
 	/// ビュー行列を更新
 	static void UpdateViewMatrix();
@@ -135,42 +141,38 @@ public: // メンバ関数
 	//初期化
 	bool Initialize();
 	/// 毎フレーム処理
-	void Update(XMMATRIX& matView);
-	void Shot(Player* player);
-	bool Collide(Player* player);
+	void Update(XMMATRIX matview);
+	void Shot(int isAlive, XMFLOAT3 position1, XMFLOAT3 position2, int RandLane, int RandHigh, int RandZ);
+	bool Collide(XMFLOAT3 position1, XMFLOAT3 position2, XMFLOAT3 scale, int isAlive, int breakCount, int HP);
 	/// 描画
 	void Draw();
 
 	/// 座標の取得
 	const XMFLOAT3& GetPosition() { return position; }
-	/// 回転の取得
-	const XMFLOAT3& GetRotation() { return  rotation; }
-	const int GetIsAlive() { return isAlive; }
-	
+
 	/// 座標の設定
 	void SetPosition(XMFLOAT3 position) { this->position = position; }
-	/// 回転の設定
 	void SetRotation(XMFLOAT3 rotation) { this->rotation = rotation; }
-	void SetIsAlive(int isAlive) { this->isAlive = isAlive; }
+	void SetScale(XMFLOAT3 scale) { this->scale = scale; }
 
+	void SetModel(Model* model) { this->model = model; }
 private: // メンバ変数
-	ComPtr<ID3D12Resource> constBuff; // 定数バッファ
+	//ComPtr<ID3D12Resource> constBuff; // 定数バッファ
+	ComPtr<ID3D12Resource> constBuffB0; // 定数バッファ
+	ComPtr<ID3D12Resource> constBuffB1; // 定数バッファ
 	// 色
 	XMFLOAT4 color = { 1,1,1,1 };
 	// ローカルスケール
-	XMFLOAT3 scale = { 10.5,10.5,10.5 };
+	XMFLOAT3 scale = { 3.0,3.0,3.0 };
 	// X,Y,Z軸回りのローカル回転角
 	XMFLOAT3 rotation = { 0,0,0 };
 	// ローカル座標
-	XMFLOAT3 position = { 0,0,100 };
+	XMFLOAT3 position = { 0,0,1 };
 	// ローカルワールド変換行列
 	XMMATRIX matWorld;
 	// 親オブジェクト
-	Block* parent = nullptr;
-	int isAlive = 0;
-	int RandLane = 0;
-	int RandHigh = 0;
-	int RandZ = 0;
-	int breakCount = 0;
-	Player* player;
+	Object3d* parent = nullptr;
+	//モデル
+	Model* model = nullptr;
 };
+
