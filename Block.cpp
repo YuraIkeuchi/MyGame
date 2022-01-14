@@ -594,7 +594,7 @@ void Block::Update(XMMATRIX& matView)
 	constMap->color = color;
 	constMap->mat = matWorld * matView * matProjection;	// s—ñ‚Ì‡¬
 	constBuff->Unmap(0, nullptr);
-	rotation.z += 1.0f;
+	rotation.x -= 5.0f;
 }
 
 
@@ -646,9 +646,9 @@ bool Block::Collide(Player* player) {
 	}
 
 	if (breakCount == 15) {
-		scale.x -= 0.25;
-		scale.y -= 0.25;
-		scale.z -= 0.25;
+		scale.x -= 0.75;
+		scale.y -= 0.75;
+		scale.z -= 0.75;
 		breakCount = 0;
 		player->SetHp(player->GetHp() - 1);
 	}

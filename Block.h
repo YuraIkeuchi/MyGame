@@ -160,7 +160,7 @@ private: // メンバ変数
 	// ローカルスケール
 	XMFLOAT3 scale = { 10.5,10.5,10.5 };
 	// X,Y,Z軸回りのローカル回転角
-	XMFLOAT3 rotation = { 0,90,0 };
+	XMFLOAT3 rotation = { 0,0,0 };
 	// ローカル座標
 	XMFLOAT3 position = { 0,0,100 };
 	// ローカルワールド変換行列

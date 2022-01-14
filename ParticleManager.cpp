@@ -1,6 +1,13 @@
 ﻿#include "ParticleManager.h"
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
+#include<fstream>
+#include<sstream>
+#include<string>
+
+#include<vector>
+using namespace std;
+
 
 #pragma comment(lib, "d3dcompiler.lib")
 
@@ -30,11 +37,12 @@ XMFLOAT3 ParticleManager::target = { 0, 0, 0 };
 XMFLOAT3 ParticleManager::up = { 0, 1, 0 };
 D3D12_VERTEX_BUFFER_VIEW ParticleManager::vbView{};
 D3D12_INDEX_BUFFER_VIEW ParticleManager::ibView{};
-ParticleManager::VertexPosNormalUv ParticleManager::vertices[vertexCount];
-unsigned short ParticleManager::indices[planeCount * 3];
+//ParticleManager::VertexPosNormalUv ParticleManager::vertices[vertexCount];
+//unsigned short ParticleManager::indices[planeCount * 3];
+std::vector<ParticleManager::VertexPosNormalUv>ParticleManager::vertices;
+std::vector<unsigned short> ParticleManager::indices;
 
-bool ParticleManager::StaticInitialize(ID3D12Device* device, int window_width, int window_height)
-{
+bool ParticleManager::StaticInitialize(ID3D12Device* device, int window_width, int window_height) {
 	// nullptrチェック
 	assert(device);
 
@@ -58,10 +66,10 @@ bool ParticleManager::StaticInitialize(ID3D12Device* device, int window_width, i
 	return true;
 }
 
-void ParticleManager::PreDraw(ID3D12GraphicsCommandList* cmdList)
-{
+void ParticleManager::PreDraw(ID3D12GraphicsCommandList* cmdList) {
 	// PreDrawとPostDrawがペアで呼ばれていなければエラー
 	assert(ParticleManager::cmdList == nullptr);
+	// 3Dオブジェクト描画前処理
 
 	// コマンドリストをセット
 	ParticleManager::cmdList = cmdList;
@@ -72,16 +80,15 @@ void ParticleManager::PreDraw(ID3D12GraphicsCommandList* cmdList)
 	cmdList->SetGraphicsRootSignature(rootsignature.Get());
 	// プリミティブ形状を設定
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 }
 
-void ParticleManager::PostDraw()
-{
+void ParticleManager::PostDraw() {
 	// コマンドリストを解除
 	ParticleManager::cmdList = nullptr;
 }
 
-ParticleManager* ParticleManager::Create()
-{
+ParticleManager* ParticleManager::Create() {
 	// 3Dオブジェクトのインスタンスを生成
 	ParticleManager* particleManager = new ParticleManager();
 	if (particleManager == nullptr) {
@@ -98,22 +105,19 @@ ParticleManager* ParticleManager::Create()
 	return particleManager;
 }
 
-void ParticleManager::SetEye(XMFLOAT3 eye)
-{
+void ParticleManager::SetEye(XMFLOAT3 eye) {
 	ParticleManager::eye = eye;
 
 	UpdateViewMatrix();
 }
 
-void ParticleManager::SetTarget(XMFLOAT3 target)
-{
+void ParticleManager::SetTarget(XMFLOAT3 target) {
 	ParticleManager::target = target;
 
 	UpdateViewMatrix();
 }
 
-void ParticleManager::CameraMoveVector(XMFLOAT3 move)
-{
+void ParticleManager::CameraMoveVector(XMFLOAT3 move) {
 	XMFLOAT3 eye_moved = GetEye();
 	XMFLOAT3 target_moved = GetTarget();
 
@@ -129,8 +133,7 @@ void ParticleManager::CameraMoveVector(XMFLOAT3 move)
 	SetTarget(target_moved);
 }
 
-bool ParticleManager::InitializeDescriptorHeap()
-{
+bool ParticleManager::InitializeDescriptorHeap() {
 	HRESULT result = S_FALSE;
 
 	// デスクリプタヒープを生成	
@@ -150,8 +153,7 @@ bool ParticleManager::InitializeDescriptorHeap()
 	return true;
 }
 
-void ParticleManager::InitializeCamera(int window_width, int window_height)
-{
+void ParticleManager::InitializeCamera(int window_width, int window_height) {
 	// ビュー行列の生成
 	matView = XMMatrixLookAtLH(
 		XMLoadFloat3(&eye),
@@ -171,8 +173,7 @@ void ParticleManager::InitializeCamera(int window_width, int window_height)
 	);
 }
 
-bool ParticleManager::InitializeGraphicsPipeline()
-{
+bool ParticleManager::InitializeGraphicsPipeline() {
 	HRESULT result = S_FALSE;
 	ComPtr<ID3DBlob> vsBlob; // 頂点シェーダオブジェクト
 	ComPtr<ID3DBlob> psBlob;	// ピクセルシェーダオブジェクト
@@ -180,7 +181,7 @@ bool ParticleManager::InitializeGraphicsPipeline()
 
 	// 頂点シェーダの読み込みとコンパイル
 	result = D3DCompileFromFile(
-		L"Resources/shaders/BasicVS.hlsl",	// シェーダファイル名
+		L"Resources/Shaders/BasicVS.hlsl",	// シェーダファイル名
 		nullptr,
 		D3D_COMPILE_STANDARD_FILE_INCLUDE, // インクルード可能にする
 		"main", "vs_5_0",	// エントリーポイント名、シェーダーモデル指定
@@ -203,7 +204,7 @@ bool ParticleManager::InitializeGraphicsPipeline()
 
 	// ピクセルシェーダの読み込みとコンパイル
 	result = D3DCompileFromFile(
-		L"Resources/shaders/BasicPS.hlsl",	// シェーダファイル名
+		L"Resources/Shaders/BasicPS.hlsl",	// シェーダファイル名
 		nullptr,
 		D3D_COMPILE_STANDARD_FILE_INCLUDE, // インクルード可能にする
 		"main", "ps_5_0",	// エントリーポイント名、シェーダーモデル指定
@@ -323,8 +324,7 @@ bool ParticleManager::InitializeGraphicsPipeline()
 	return true;
 }
 
-bool ParticleManager::LoadTexture()
-{
+bool ParticleManager::LoadTexture() {
 	HRESULT result = S_FALSE;
 
 	// WICテクスチャのロード
@@ -332,7 +332,8 @@ bool ParticleManager::LoadTexture()
 	ScratchImage scratchImg{};
 
 	result = LoadFromWICFile(
-		L"Resources/Circle5if.png", WIC_FLAGS_NONE,
+		//L"Resources/mameneko.jpg", WIC_FLAGS_NONE,
+		L"Resources/Particle/Particle.png", WIC_FLAGS_NONE,
 		&metadata, scratchImg);
 	if (FAILED(result)) {
 		return result;
@@ -393,98 +394,86 @@ bool ParticleManager::LoadTexture()
 	return true;
 }
 
-void ParticleManager::CreateModel()
-{
+void ParticleManager::CreateModel() {
 	HRESULT result = S_FALSE;
-	//パーティクル用
-	VertexPosNormalUv vertices[] = {
-		//前
-	{{-5.0f,-5.0f, 5.0f},{},{0.0f,1.0f}},//左下
-	{{ 5.0f,-5.0f, 5.0f},{},{0.0f,0.0f}},//左上
-	{{-5.0f, 5.0f, 5.0f},{},{1.0f,1.0f}},//右下
-	{{ 5.0f, 5.0f, 5.0f},{},{1.0f,0.0f}},//右上
 
-	//後ろ
-	{{-5.0f, 5.0f,-5.0f},{},{0.0f,1.0f}},//左下
-	{{ 5.0f, 5.0f,-5.0f},{},{0.0f,0.0f}},//左上
-	{{-5.0f,-5.0f,-5.0f},{},{1.0f,1.0f}},//右下
-	{{ 5.0f,-5.0f,-5.0f},{},{1.0f,0.0f}},//右上
-
-	//左
-	{{-5.0f, 5.0f, 5.0f},{},{0.0f,1.0f}},//左下
-	{{-5.0f, 5.0f,-5.0f},{},{0.0f,0.0f}},//左上
-	{{-5.0f,-5.0f, 5.0f},{},{1.0f,1.0f}},//右下
-	{{-5.0f,-5.0f,-5.0f},{},{1.0f,0.0f}},//右上
-
-	//右
-	{{ 5.0f, -5.0f, 5.0f},{},{0.0f,1.0f}},//左下
-	{{ 5.0f, -5.0f,-5.0f},{},{0.0f,0.0f}},//左上
-	{{ 5.0f,  5.0f, 5.0f},{},{1.0f,1.0f}},//右下
-	{{ 5.0f,  5.0f,-5.0f},{},{1.0f,0.0f}},//右上
-
-	//下
-	{{ 5.0f,5.0f,-5.0f},{},{0.0f,1.0f}},//左下
-	{{-5.0f,5.0f,-5.0f},{},{0.0f,0.0f}},//左上
-	{{ 5.0f,5.0f, 5.0f},{},{1.0f,1.0f}},//右下
-	{{-5.0f,5.0f, 5.0f},{},{1.0f,0.0f}},//右上
-
-	//上
-	{{-5.0f,-5.0f,-5.0f},{},{0.0f,1.0f}},//左下
-	{{ 5.0f,-5.0f,-5.0f},{},{0.0f,0.0f}},//左上
-	{{-5.0f,-5.0f, 5.0f},{},{1.0f,1.0f}},//右下
-	{{ 5.0f,-5.0f, 5.0f},{},{1.0f,0.0f}},//右上
-	};
-
-	//パーティクル用
-	unsigned short indices[] = {
-		0,1,2,
-		2,1,3,
-
-		4,5,6,
-		6,5,7,
-
-		8,9,10,
-		10,9,11,
-
-		12,13,14,
-		14,13,15,
-
-		16,17,18,
-		18,17,19,
-
-		20,21,22,
-		22,21,23,
-	};
-
-	// 法線方向の計算
-	for (int i = 0; i < _countof(indices) / 3; i++)
-	{// 三角形１つごとに計算していく
-		// 三角形のインデックスを取得
-		unsigned short index0 = indices[i * 3 + 0];
-		unsigned short index1 = indices[i * 3 + 1];
-		unsigned short index2 = indices[i * 3 + 2];
-		// 三角形を構成する頂点座標をベクトルに代入
-		XMVECTOR p0 = XMLoadFloat3(&vertices[index0].pos);
-		XMVECTOR p1 = XMLoadFloat3(&vertices[index1].pos);
-		XMVECTOR p2 = XMLoadFloat3(&vertices[index2].pos);
-		// p0→p1ベクトル、p0→p2ベクトルを計算
-		XMVECTOR v1 = XMVectorSubtract(p1, p0);
-		XMVECTOR v2 = XMVectorSubtract(p2, p0);
-		// 外積は両方から垂直なベクトル
-		XMVECTOR normal = XMVector3Cross(v1, v2);
-		// 正規化（長さを1にする)
-		normal = XMVector3Normalize(normal);
-		// 求めた法線を頂点データに代入
-		XMStoreFloat3(&vertices[index0].normal, normal);
-		XMStoreFloat3(&vertices[index1].normal, normal);
-		XMStoreFloat3(&vertices[index2].normal, normal);
+	std::vector<VertexPosNormalUv> realVertices;
+	//ファイルストリーム
+	std::ifstream file;
+	//.objファイルを開く
+	file.open("Resources/Particle/Particle.obj");
+	//ファイルオープン失敗をチャック
+	if (file.fail()) {
+		assert(0);
 	}
+	vector<XMFLOAT3>positions;
+	vector<XMFLOAT3>normals;
+	vector<XMFLOAT2>texcoords;
+	//一行ずつ読み込む
+	string line;
+	while (getline(file, line)) {
+		//
+		std::istringstream line_stream(line);
+
+		//半角スペース区切りで業おお先端文字列を取得
+		string key;
+		getline(line_stream, key, ' ');
+		if (key == "v") {
+			XMFLOAT3 position{};
+			line_stream >> position.x;
+			line_stream >> position.y;
+			line_stream >> position.z;
+
+			positions.emplace_back(position);
+			//VertexPosNormalUv vertex{};
+			//vertex.pos = position;
+			//vertices.emplace_back(vertex);
+		}
+		if (key == "vt") {
+			XMFLOAT2 texcoord{};
+			line_stream >> texcoord.x;
+			line_stream >> texcoord.y;
+
+			texcoord.y = 1.0f - texcoord.y;
+			texcoords.emplace_back(texcoord);
+		}
+		if (key == "vn") {
+			XMFLOAT3 normal{};
+			line_stream >> normal.x;
+			line_stream >> normal.y;
+			line_stream >> normal.z;
+			normals.emplace_back(normal);
+		}
+		if (key == "f") {
+			string index_string;
+			while (getline(line_stream, index_string, ' ')) {
+				std::istringstream index_stream(index_string);
+				unsigned short indexPosition, indexNormal, indexTexcoord;
+				index_stream >> indexPosition;
+				index_stream.seekg(1, ios_base::cur);
+				index_stream >> indexTexcoord;
+				index_stream.seekg(1, ios_base::cur);
+				index_stream >> indexNormal;
+				VertexPosNormalUv vertex{};
+				vertex.pos = positions[indexPosition - 1];
+				vertex.normal = normals[indexNormal - 1];
+				vertex.uv = texcoords[indexTexcoord - 1];
+				vertices.emplace_back(vertex);
+				indices.emplace_back((unsigned short)indices.size());
+			}
+		}
+	}
+	//
+	file.close();
+	UINT sizeVB = static_cast<UINT>(sizeof(VertexPosNormalUv) * vertices.size());
+	UINT sizeIB = static_cast<UINT>(sizeof(unsigned short) * indices.size());
 
 	// 頂点バッファ生成
 	result = device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),
+		//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeVB),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&vertBuff));
@@ -497,7 +486,8 @@ void ParticleManager::CreateModel()
 	result = device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(indices)),
+		//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(indices)),
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeIB),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&indexBuff));
@@ -510,7 +500,8 @@ void ParticleManager::CreateModel()
 	VertexPosNormalUv* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
 	if (SUCCEEDED(result)) {
-		memcpy(vertMap, vertices, sizeof(vertices));
+		//memcpy(vertMap, vertices, sizeof(vertices));
+		std::copy(vertices.begin(), vertices.end(), vertMap);
 		vertBuff->Unmap(0, nullptr);
 	}
 
@@ -518,35 +509,33 @@ void ParticleManager::CreateModel()
 	unsigned short* indexMap = nullptr;
 	result = indexBuff->Map(0, nullptr, (void**)&indexMap);
 	if (SUCCEEDED(result)) {
-
-		// 全インデックスに対して
-		for (int i = 0; i < _countof(indices); i++)
-		{
-			indexMap[i] = indices[i];	// インデックスをコピー
-		}
-
+		//// 全インデックスに対して
+		//for (int i = 0; i < _countof(indices); i++)
+		//{
+		//	indexMap[i] = indices[i];	// インデックスをコピー
+		//}
+		std::copy(indices.begin(), indices.end(), indexMap);
 		indexBuff->Unmap(0, nullptr);
 	}
 
 	// 頂点バッファビューの作成
 	vbView.BufferLocation = vertBuff->GetGPUVirtualAddress();
-	vbView.SizeInBytes = sizeof(vertices);
+	//vbView.SizeInBytes = sizeof(vertices);
+	vbView.SizeInBytes = sizeVB;
 	vbView.StrideInBytes = sizeof(vertices[0]);
 
 	// インデックスバッファビューの作成
 	ibView.BufferLocation = indexBuff->GetGPUVirtualAddress();
 	ibView.Format = DXGI_FORMAT_R16_UINT;
-	ibView.SizeInBytes = sizeof(indices);
+	//ibView.SizeInBytes = sizeof(indices);
+	ibView.SizeInBytes = sizeIB;
 }
 
-void ParticleManager::UpdateViewMatrix()
-{
+void ParticleManager::UpdateViewMatrix() {
 	// ビュー行列の更新
 	matView = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 }
-
-bool ParticleManager::Initialize()
-{
+bool ParticleManager::Initialize() {
 	// nullptrチェック
 	assert(device);
 
@@ -559,12 +548,10 @@ bool ParticleManager::Initialize()
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&constBuff));
-
 	return true;
 }
 
-void ParticleManager::Update(XMMATRIX& matView)
-{
+void ParticleManager::Update(XMMATRIX& matView) {
 	HRESULT result;
 	XMMATRIX matScale, matRot, matTrans;
 
@@ -587,21 +574,20 @@ void ParticleManager::Update(XMMATRIX& matView)
 		// 親オブジェクトのワールド行列を掛ける
 		matWorld *= parent->matWorld;
 	}
-
 	// 定数バッファへデータ転送
 	ConstBufferData* constMap = nullptr;
 	result = constBuff->Map(0, nullptr, (void**)&constMap);
 	constMap->color = color;
 	constMap->mat = matWorld * matView * matProjection;	// 行列の合成
 	constBuff->Unmap(0, nullptr);
+
 }
 
-void ParticleManager::Draw()
-{
+void ParticleManager::Draw() {
 	// nullptrチェック
 	assert(device);
 	assert(ParticleManager::cmdList);
-
+	//assert(constBuff);
 	// 頂点バッファの設定
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
 	// インデックスバッファの設定
@@ -616,5 +602,6 @@ void ParticleManager::Draw()
 	// シェーダリソースビューをセット
 	cmdList->SetGraphicsRootDescriptorTable(1, gpuDescHandleSRV);
 	// 描画コマンド
-		cmdList->DrawIndexedInstanced(_countof(indices), 1, 0, 0, 0);
+	cmdList->DrawIndexedInstanced((UINT)indices.size(), 1, 0, 0, 0);
 }
+

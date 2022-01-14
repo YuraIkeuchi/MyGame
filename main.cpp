@@ -191,7 +191,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int MoveNumber = 0;
 #pragma endregion
 #pragma region//障害物
-	const int Block_NUM = 5;
+	const int Block_NUM = 25;
 	
 	Block* block[Block_NUM];
 	int ResPornTimer[Block_NUM];
@@ -225,7 +225,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	background->Update(matview);
 #pragma endregion
 #pragma region//パーティクル
-	const int Particle_NUM = 40;
+	const int Particle_NUM = 20;
 	ParticleManager* particle[Particle_NUM];
 	int particleAlive[Particle_NUM];
 	XMFLOAT3 particlePosition[Particle_NUM];
@@ -256,7 +256,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	input->Initialize(winApp);
 #pragma endregion
 #pragma region//カメラ
-	XMVECTOR v0 = { 0,0,-1,0 };
+	XMVECTOR v0 = { 0,0,-5,0 };
 	XMMATRIX rotM;// = XMMatrixIdentity();
 	XMVECTOR eye2;
 	XMVECTOR target2 = { PlayerPosition.x, PlayerPosition.y,PlayerPosition.z, 0 };
@@ -439,7 +439,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		//カメラの注視点をプレイヤーの位置に固定
 		target2.m128_f32[2] = PlayerPosition.z - 45;
 		//カメラ追従用の処理
-		target2.m128_f32[0] = background->GetPosition().x;
+		target2.m128_f32[0] = PlayerPosition.x;
 		target2.m128_f32[1] = 0;
 		//行列を作り直す
 		rotM = XMMatrixRotationX(XMConvertToRadians(angle));
