@@ -102,25 +102,33 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	const int SpriteMax = 10;
 	Sprite* sprite[SpriteMax] = { nullptr };
 	// スプライト共通テクスチャ読み込み
-	/*SpriteCommonLoadTexture(spriteCommon, 0, L"Resources/texture.png", dxCommon->GetDev());
-	SpriteCommonLoadTexture(spriteCommon, 1, L"Resources/house.png", dxCommon->GetDev());*/
 	Sprite::LoadTexture(0, L"Resources/GAMETITLE.png");
 	Sprite::LoadTexture(1, L"Resources/GAMECLEAR.png");
-	Sprite::LoadTexture(2, L"Resources/EnemyHP.png");
+	Sprite::LoadTexture(2, L"Resources/PlayerHP.png");
 	Sprite::LoadTexture(3, L"Resources/Background.png");
+	Sprite::LoadTexture(4, L"Resources/RedBack.png");
+	Sprite::LoadTexture(5, L"Resources/NextWave.png");
+	Sprite::LoadTexture(6, L"Resources/LastWave.png");
 	sprite[0] = Sprite::Create(0, { 0.0f,0.0f });
 	sprite[1] = Sprite::Create(1, { 0.0f,0.0f });
 	sprite[2] = Sprite::Create(2, { 0.0f,0.0f });
 	sprite[3] = Sprite::Create(3, { 0.0f,0.0f });
-	XMFLOAT2 SpritePosition = sprite[0]->GetPosition();
+	sprite[4] = Sprite::Create(4, { 0.0f,0.0f });
+	sprite[5] = Sprite::Create(5, { 0.0f,0.0f });
+	sprite[6] = Sprite::Create(6, { 0.0f,0.0f });
+	XMFLOAT4 SpriteColor = { 1.0f,1.0f,1.0f,0.5f };
+	sprite[5]->SetColor(SpriteColor);
+	sprite[6]->SetColor(SpriteColor);
+	int SpriteColorNumber = 0;
+	int SpriteColorCount = 0;
 #pragma endregion
 #pragma region//モデル読み込み
-
 	if (!Object3d::StaticInitialize(dxCommon->GetDev(), WinApp::window_width, WinApp::window_height)) {
 		assert(0);
 		return 0;
 	}
-	const int Block_NUM = 25;
+	const int Block_NUM = 100;
+	int WaveBlock = 10;
 	const int Particle_NUM = 20;
 	Model* Player_model = Model::LoadFromOBJ("Player");
 	Object3d* Player_object = Object3d::Create();
@@ -192,7 +200,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int BlockRandZ[Block_NUM];
 	int BlockbreakCount[Block_NUM];
 	for (int i = 0; i < Block_NUM; i++) {
-		ResPornTimer[i] = 50;
+		ResPornTimer[i] = 20;
 		BlockisAlive[i] = 0;
 		BlockRandLane[i] = 0;
 		BlockRandHigh[i] = 0;
@@ -233,9 +241,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	enum Scene {
 		title,
 		gamePlay,
+		Wave,
 		gameOver,
 		gameClear
 	};
+	int WaveTimer = 0;
+	int WaveCount = 1;
 #pragma endregion
 #pragma region//ループ処理
 	while (true) {
@@ -244,9 +255,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (winApp->ProcessMessage()) {
 			break;
 		}
-
-		SpritePosition = sprite[0]->GetPosition();
-
 		//キーの更新
 		input->Update();
 #pragma region//タイトル
@@ -260,6 +268,32 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		//プレイヤー処理
 #pragma region//ゲームプレイ中
 		if (Scene == gamePlay) {
+			//経過時間を決める
+			WaveTimer++;
+			if (WaveTimer == 3500 && WaveCount != 6) {
+				Scene = Wave;
+				WaveCount++;
+				WaveTimer = 0;
+			}
+
+			//出てくるブロックの数を決める
+			if (WaveCount == 1) {
+				WaveBlock = 20;
+			} else if(WaveCount == 2){
+				WaveBlock = 40;
+			} else if (WaveCount == 3) {
+				WaveBlock = 60;
+			} else if (WaveCount == 4) {
+				WaveBlock = 80;
+			} else if (WaveCount == 5) {
+				WaveBlock = 100;
+			}
+
+			//一定のWaveでゲームクリア
+			if (WaveCount == 6) {
+				Scene = gameClear;
+			}
+
 			if (MoveNumber == 0) {
 				if (input->TriggerKey(DIK_DOWN) && HighNumber == 0) {
 					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
@@ -296,13 +330,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					MoveNumber = 4;
 				}
 			}
-
-			//	//imgui移動処理
-			//	Input::MouseMove mouseMove = input->GetMouseMove();
-
-			///*	if (input->PushMouseLeft()) {
-			//		ImGui::SetNextWindowPos(ImVec2(mouseMove.lX, mouseMove.lY));
-			//	}*/
 
 			//イージングで移動
 			if (MoveNumber == 1) {
@@ -345,12 +372,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				}
 			}
 			//ブロック出現
-			for (int i = 0; i < Block_NUM; i++) {
+			for (int i = 0; i < WaveBlock; i++) {
 				if (BlockisAlive[i] == 0) {
 					ResPornTimer[i]--;
 					if (ResPornTimer[i] <= 0) {
-						ResPornTimer[i] = 50;
+						ResPornTimer[i] = 20;
 						BlockisAlive[i] = 1;
+						BlockScale[i] = { 3.0f,3.0f,3.0f };
 						BlockRandLane[i] = rand() % 4;
 						BlockRandHigh[i] = rand() % 2;
 						BlockRandZ[i] = rand() % 500 + 500;
@@ -376,14 +404,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					BlockisAlive[i] = 0;
 				}
 				//プレイヤーとの当たり判定
-				if ((BlockPosition[i].x == PlayerPosition.x) && (BlockPosition[i].y == PlayerPosition.y)
+			/*	if ((BlockPosition[i].x == PlayerPosition.x) && (BlockPosition[i].y == PlayerPosition.y)
 					&& (BlockPosition[i].z >= PlayerPosition.z) && (BlockPosition[i].z <= PlayerPosition.z + 15)
 					&& (BlockisAlive[i] == 1)) {
 					BlockbreakCount[i]++;
 					BlockPosition[i].z = PlayerPosition.z + 4.25;
+				}*/
+
+				if (BlockisAlive[i] == 1) {
+					float k;
+					k = sqrtf((BlockPosition[i].x - PlayerPosition.x) * (BlockPosition[i].x - PlayerPosition.x)
+						+ (BlockPosition[i].y - PlayerPosition.y) * (BlockPosition[i].y - PlayerPosition.y)
+						+ (BlockPosition[i].z - PlayerPosition.z) * (BlockPosition[i].z - PlayerPosition.z));
+				
+					if (k <= 8) {
+						BlockbreakCount[i]++;
+						BlockPosition[i].z = PlayerPosition.z + 4.25;
+					}
 				}
 
-				if (BlockbreakCount[i] == 15) {
+				if (BlockbreakCount[i] == 7) {
 					BlockScale[i].x -= 1.0f;
 					BlockScale[i].y -= 1.0f;
 					BlockScale[i].z -= 1.0f;
@@ -393,7 +433,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 				if (BlockScale[i].z <= 0.0f) {
 					BlockisAlive[i] = 0;
-					if (ResPornTimer[i] == 50) {
+					if (ResPornTimer[i] == 20) {
 						for (int j = 0; j < Particle_NUM; j++) {
 							particlePosition[j] = BlockPosition[i];
 							particleAlive[j] = 1;
@@ -409,17 +449,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 					particleYG[i] -= 0.2;
 					particlePosition[i].x += particleXG[i];
 					particlePosition[i].y += particleYG[i];
+					if (particlePosition[i].y <= -200) {
+						particleAlive[i] = 0;
+					}
 				}
 			}
-
 			if (input->TriggerKey(DIK_R)) {
 				Scene = gameClear;
 			}
+			PlayerPosition.z += 0.75;
 #pragma endregion
 		}
-
-		PlayerPosition.z += 0.75;
-
+	
 		//移動のやつ
 		//カメラの注視点をプレイヤーの位置に固定
 		target2.m128_f32[2] = PlayerPosition.z - 45;
@@ -435,7 +476,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Player_object->SetPosition(PlayerPosition);
 		Player_object->SetRotation(PlayerRotation);
 		Player_object->Update(matview);
-		for (int i = 0; i < Block_NUM; i++) {
+		for (int i = 0; i < WaveBlock; i++) {
 			Block_object[i]->SetPosition(BlockPosition[i]);
 			Block_object[i]->SetScale(BlockScale[i]);
 			Block_object[i]->Update(matview);
@@ -445,7 +486,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			Particle_object[i]->SetPosition(particlePosition[i]);
 			Particle_object[i]->Update(matview);
 		}
-		//ルートシグネチャの設定コマンド
 #pragma region//クリア
 		if (Scene == gameClear) {
 			if (input->TriggerKey(DIK_S)) {
@@ -453,22 +493,58 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			}
 		}
 #pragma endregion
+#pragma region//ウェーブ
+		if (Scene == Wave) {
+			if (SpriteColor.w <= 0.0f) {
+				SpriteColorNumber = 1;
+				SpriteColorCount++;
+			} if (SpriteColor.w >= 1.0f) {
+				SpriteColorNumber = 0;
+				SpriteColorCount++;
+			}
+
+			if (SpriteColorNumber == 0) {
+				SpriteColor.w -= 0.025;
+			}
+
+			else {
+				SpriteColor.w += 0.025f;
+			}
+
+			if (SpriteColorCount == 10) {
+				Scene = gamePlay;
+				SpriteColorCount = 0;
+				for (int i = 0; i < WaveBlock; i++) {
+					BlockisAlive[i] = 0;
+					ResPornTimer[i] = 0;
+				}
+			}
+		}
+#pragma endregion
 #pragma endregion
 #pragma region//描画
 		//びょうがこまんど
 		dxCommon->PreDraw();
-
 		Sprite::PreDraw(dxCommon->GetCmdList());
-		// 背景スプライト描画
 		sprite[3]->Draw();
+		// 背景スプライト描画
+		if (Scene == Wave) {
+			sprite[4]->Draw();
+			sprite[5]->SetColor(SpriteColor);
+			sprite[6]->SetColor(SpriteColor);
+			if (WaveCount != 5) {
+				sprite[5]->Draw();
+			} else {
+				sprite[6]->Draw();
+			}
+		}
+		
 		dxCommon->ClearDepthBuffer();
 		// スプライト描画後処理
 		Sprite::PostDraw();
-
 		////4.描画コマンドここから
 		dxCommon->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		Object3d::PreDraw(dxCommon->GetCmdList());
-
 		ImGui::Begin("test");
 		if (ImGui::TreeNode("Debug"))
 		{
@@ -482,14 +558,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				ImGui::TreePop();
 			}
 
+			if (ImGui::TreeNode("Wave"))
+			{
+				ImGui::Indent();
+				ImGui::Text("WaveCount:%d", WaveCount);
+				ImGui::Text("WaveTimer:%d", WaveTimer);
+				ImGui::Text("SpriteCount:%d", SpriteColorCount);
+				ImGui::Text("SpriteTimer:%d", SpriteColorNumber);
+				ImGui::SliderFloat("SpriteColor", &SpriteColor.w, 50, -50);
+				ImGui::Unindent();
+				ImGui::TreePop();
+			}
+
 			if (ImGui::TreeNode("Block"))
 			{
 				ImGui::Indent();
-				ImGui::SliderFloat("Position.x", &BlockPosition[0].x, 50, -50);
-				ImGui::SliderFloat("Position.y", &BlockPosition[0].y, 50, -50);
-				ImGui::SliderFloat("Position.z", &BlockPosition[0].z, 50, -50);
-				ImGui::Text("%d", ResPornTimer[0]);
-				ImGui::Text("%d", BlockisAlive[0]);
+				ImGui::SliderFloat("Position.x", &BlockPosition[9].x, 50, -50);
+				ImGui::SliderFloat("Position.y", &BlockPosition[9].y, 50, -50);
+				ImGui::SliderFloat("Position.z", &BlockPosition[9].z, 50, -50);
 				ImGui::Unindent();
 				ImGui::TreePop();
 			}
@@ -501,13 +587,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		ImGui::End();
 
 		//描画コマンド
-
 		//背景
 		if (Scene == gamePlay) {
-
 			Player_object->Draw();
-
-			for (int i = 0; i < Block_NUM; i++) {
+			for (int i = 0; i < WaveBlock; i++) {
 				Block_object[i]->Draw();
 			}
 
@@ -517,7 +600,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				}
 			}
 		}
-
 
 		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == title) {
@@ -534,7 +616,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == gameClear) {
 			sprite[1]->Draw();
-
 		}
 
 		Sprite::PostDraw();
