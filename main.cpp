@@ -17,6 +17,7 @@
 #include "Audio.h"
 #include "Model.h"
 #include "Object3d.h"
+#include "Collision.h"
 
 #pragma comment(lib,"d3dcompiler.lib")
 #pragma comment(lib,"d3d12.lib")
@@ -42,16 +43,6 @@ const int SpriteSRVCount = 512;
 
 #pragma endregion
 #pragma region//関数
-
-int collision2(const float& X1, const float& Y1, const float& R1, const float& X2, const float& Y2, const float& R2) {
-	int a = X1 - X2;
-	int b = Y1 - Y2;
-	int distance = sqrtf(a * a + b * b);
-	int radius = R1 + R2;
-	if (distance <= radius) {
-		return TRUE;
-	}
-}
 
 float easeInSine(float x) {
 	return x * x * x;
@@ -82,7 +73,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	HRESULT result;
 #pragma endregion
 #pragma region//定数バッファ
-
 #pragma endregion
 #pragma region//ビュー行列
 	//ビュー変換行列
@@ -212,14 +202,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int ScoreThirdCount = 0;
 	int ScoreFourCount = 0;
 	for (int i = 0; i < SpriteNumberMax; i++) {
-		spriteFirstNumber[i]->SetPosition({ 900,50 });
-		spriteSecondNumber[i]->SetPosition({ 800,50 });
-		spriteThirdNumber[i]->SetPosition({ 700,50 });
-		spriteFourNumber[i]->SetPosition({ 600,50 });
+		spriteFirstNumber[i]->SetPosition({ 900,60 });
+		spriteSecondNumber[i]->SetPosition({ 800,60 });
+		spriteThirdNumber[i]->SetPosition({ 700,60 });
+		spriteFourNumber[i]->SetPosition({ 600,60 });
 	}
 
 	for (int i = 0; i < SpriteRankMax; i++) {
-		spriteRank[i]->SetPosition({ 720,320 });
+		spriteRank[i]->SetPosition({ 720,330 });
 	}
 #pragma endregion
 #pragma region//モデル読み込み
@@ -228,7 +218,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		return 0;
 	}
 	const int Block_NUM = 100;
-	int WaveBlock = 10;
+	int WaveBlock = 20;
 	const int Particle_NUM = 20;
 	Model* Player_model = Model::LoadFromOBJ("Player");
 	Object3d* Player_object = Object3d::Create();
@@ -269,8 +259,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		assert(0);
 		return 1;
 	}
-	audio->LoadSound(0, "Resources/Sound/kadai_BGM.wav");
-	audio->LoopWave(0, 0.5f);
+	audio->LoadSound(0, "Resources/Sound/vigilante.wav");
+	audio->LoadSound(1, "Resources/Sound/se_21_siren02.wav");
+	audio->LoopWave(0, 0.4f);
 #pragma endregion
 #pragma region//プレイヤー
 	XMFLOAT3 PlayerPosition;
@@ -294,13 +285,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma region//障害物
 	int ResPornTimer[Block_NUM];
 	XMFLOAT3 BlockPosition[Block_NUM];
+	XMFLOAT3 BlockRotation[Block_NUM];
 	int BlockisAlive[Block_NUM];
 	int BlockRandLane[Block_NUM];
 	int BlockRandHigh[Block_NUM];
 	int BlockRandZ[Block_NUM];
 	int BlockbreakCount[Block_NUM];
 	for (int i = 0; i < Block_NUM; i++) {
-		ResPornTimer[i] = 20;
+		BlockPosition[i] = { 0.0f,0.0f,0.0f };
+		BlockRotation[i] = { 0.0f,0.0f,0.0f };
+		Block_object[i]->SetRotation(BlockRotation[i]);
+		Block_object[i]->SetPosition(BlockPosition[i]);
+		ResPornTimer[i] = 10;
 		BlockisAlive[i] = 0;
 		BlockRandLane[i] = 0;
 		BlockRandHigh[i] = 0;
@@ -328,13 +324,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	input->Initialize(winApp);
 #pragma endregion
 #pragma region//カメラ
-	XMVECTOR v0 = {0,0,-5,0 };
+	XMVECTOR v0 = {50,0,40,0 };
 	XMMATRIX rotM;// = XMMatrixIdentity();
 	XMVECTOR eye2;
 	XMVECTOR target2 = { PlayerPosition.x, PlayerPosition.y,PlayerPosition.z, 0 };
 	XMVECTOR up2 = { 0,0.0f,0,0 };
 	//カメラの回転角
+	float PI = 3.14f;
 	float angle = 0.0f;
+	float Cameraradius = 0.0f;
+	float CameraSpeed = 0.0f;
+	float Camerascale = 0.0f;
+	float CameraCircleX = 0.0f;
+	float CameraCircleZ = 0.0f;
 #pragma endregion
 #pragma region//シーン変数
 	int Scene = 0;
@@ -348,7 +350,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	int WaveTimer = 0;
 	int WaveCount = 1;
 	int SpaceCount = 0;
+	int StartFlag = 0;
 #pragma endregion
+	Collision* collision = nullptr;
 #pragma region//ループ処理
 	while (true) {
 #pragma region//更新処理
@@ -382,242 +386,257 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		//プレイヤー処理
 #pragma region//ゲームプレイ中
 		if (Scene == gamePlay) {
+			if (StartFlag == 0) {
+				if (v0.m128_f32[2] != -40.0f) {
+					v0.m128_f32[2] -= 0.5f;
+				}
+				if (v0.m128_f32[0] != 0.0f) {
+					v0.m128_f32[0] -= 0.25f;
+				}
+
+				if (v0.m128_f32[0] == 0.0f && v0.m128_f32[2] == -40.0f) {
+					StartFlag = 1;
+				}
+			}
 			//経過時間を決める
-			WaveTimer++;
-			if (WaveTimer % 300 == 0 && WaveTimer != 0) {
-				ScoreSecondCount++;
-			}
-
-			if (ScoreSecondCount >= 10) {
-				ScoreSecondCount = 0;
-				ScoreThirdCount++;
-			}
-
-			if (ScoreThirdCount >= 10) {
-				ScoreThirdCount = 0;
-				ScoreFourCount++;
-			}
-
-			if (WaveTimer == 3500 && WaveCount != 6) {
-				Scene = Wave;
-				WaveCount++;
-				WaveTimer = 0;
-			}
-
-			//出てくるブロックの数を決める
-			if (WaveCount == 1) {
-				WaveBlock = 20;
-			} else if(WaveCount == 2){
-				WaveBlock = 40;
-			} else if (WaveCount == 3) {
-				WaveBlock = 60;
-			} else if (WaveCount == 4) {
-				WaveBlock = 80;
-			} else if (WaveCount == 5) {
-				WaveBlock = 100;
-			}
-
-			//一定のWaveでゲームクリア
-			if (WaveCount == 6) {
-				Scene = Result;
-			}
-
-			if (MoveNumber == 0) {
-				if (input->TriggerKey(DIK_DOWN) && HighNumber == 0) {
-					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
-					initPositionY = PlayerPosition.y;
-					initRotation = PlayerRotation.z;
-					frame = 0;
-					HighNumber = 1;
-					MoveNumber = 1;
+			else {
+				WaveTimer++;
+				if (WaveTimer % 220 == 0 && WaveTimer != 0) {
+					ScoreSecondCount++;
 				}
 
-				if (input->TriggerKey(DIK_UP) && HighNumber == 1) {
-					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
-					initPositionY = PlayerPosition.y;
-					initRotation = PlayerRotation.z;
-					frame = 0;
-					HighNumber = 0;
-					MoveNumber = 2;
+				if (ScoreSecondCount >= 10) {
+					ScoreSecondCount = 0;
+					ScoreThirdCount++;
 				}
 
-				if (input->TriggerKey(DIK_LEFT) && LaneNumber >= 1) {
-					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
-					initPositionX = PlayerPosition.x;
-					initRotation = PlayerRotation.z;
-					LaneNumber--;
-					frame = 0;
-					MoveNumber = 3;
+				if (ScoreThirdCount >= 10) {
+					ScoreThirdCount = 0;
+					ScoreFourCount++;
 				}
-				if (input->TriggerKey(DIK_RIGHT) && LaneNumber <= 2) {
-					audio->PlayWave("Resources/Sound/Decision.wav", 0.7f);
-					initPositionX = PlayerPosition.x;
-					initRotation = PlayerRotation.z;
-					LaneNumber++;
-					frame = 0;
-					MoveNumber = 4;
-				}
-			}
 
-			//イージングで移動
-			if (MoveNumber == 1) {
-				PlayerPosition.y = initPositionY - 20.0f * easeInSine(frame / frameMax);
-				PlayerRotation.z = initRotation - 360.0f * easeInSine(frame / frameMax);
-				if (frame != frameMax) {
-					frame = frame + 1;
-				} else {
-					MoveNumber = 0;
+				if (WaveTimer == 3000 && WaveCount != 6) {
+					Scene = Wave;
+					WaveCount++;
+					WaveTimer = 0;
 				}
-			}
 
-			if (MoveNumber == 2) {
-				PlayerPosition.y = initPositionY + 20.0f * easeInSine(frame / frameMax);
-				PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
-				if (frame != frameMax) {
-					frame = frame + 1;
-				} else {
-					MoveNumber = 0;
+				//一定のWaveでゲームクリア
+				if (WaveCount == 6) {
+					Scene = Result;
 				}
-			}
 
-			if (MoveNumber == 3) {
-				PlayerPosition.x = initPositionX - 15.0f * easeInSine(frame / frameMax);
-				PlayerRotation.z = initRotation - 360.0f * easeInSine(frame / frameMax);
-				if (frame != frameMax) {
-					frame = frame + 1;
-				} else {
-					MoveNumber = 0;
-				}
-			}
+				if (MoveNumber == 0) {
+					if (input->TriggerKey(DIK_DOWN) && HighNumber == 0 && hp >= 1) {
+						audio->PlayWave("Resources/Sound/se_sad04.wav", 0.1f);
+						initPositionY = PlayerPosition.y;
+						initRotation = PlayerRotation.z;
+						frame = 0;
+						HighNumber = 1;
+						MoveNumber = 1;
+					}
 
-			if (MoveNumber == 4) {
-				PlayerPosition.x = initPositionX + 15.0f * easeInSine(frame / frameMax);
-				PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
-				if (frame != frameMax) {
-					frame = frame + 1;
-				} else {
-					MoveNumber = 0;
-				}
-			}
-			//ブロック出現
-			for (int i = 0; i < WaveBlock; i++) {
-				if (BlockisAlive[i] == 0) {
-					ResPornTimer[i]--;
-					if (ResPornTimer[i] <= 0) {
-						ResPornTimer[i] = 20;
-						BlockisAlive[i] = 1;
-						BlockScale[i] = { 3.0f,3.0f,3.0f };
-						BlockRandLane[i] = rand() % 4;
-						BlockRandHigh[i] = rand() % 2;
-						BlockRandZ[i] = rand() % 500 + 500;
-						BlockPosition[i].z = PlayerPosition.z + BlockRandZ[i];
-						if (BlockRandHigh[i] == 0) {
-							BlockPosition[i].y = 5.0f;
-						} else if (BlockRandHigh[i] == 1) {
-							BlockPosition[i].y = -15.0f;
-						}
-						if (BlockRandLane[i] == 0) {
-							BlockPosition[i].x = -65.0f;
-						} else if (BlockRandLane[i] == 1) {
-							BlockPosition[i].x = -50.0f;
-						} else if (BlockRandLane[i] == 2) {
-							BlockPosition[i].x = -35.0f;
-						} else if (BlockRandLane[i] == 3) {
-							BlockPosition[i].x = -20.0f;
-						}
+					if (input->TriggerKey(DIK_UP) && HighNumber == 1 && hp >= 1) {
+						audio->PlayWave("Resources/Sound/se_sad04.wav", 0.1f);
+						initPositionY = PlayerPosition.y;
+						initRotation = PlayerRotation.z;
+						frame = 0;
+						HighNumber = 0;
+						MoveNumber = 2;
+					}
+
+					if (input->TriggerKey(DIK_LEFT) && LaneNumber >= 1 && hp >= 1) {
+						audio->PlayWave("Resources/Sound/se_sad04.wav", 0.1f);
+						initPositionX = PlayerPosition.x;
+						initRotation = PlayerRotation.z;
+						LaneNumber--;
+						frame = 0;
+						MoveNumber = 3;
+					}
+					if (input->TriggerKey(DIK_RIGHT) && LaneNumber <= 2 && hp >= 1) {
+						audio->PlayWave("Resources/Sound/se_sad04.wav", 0.1f);
+						initPositionX = PlayerPosition.x;
+						initRotation = PlayerRotation.z;
+						LaneNumber++;
+						frame = 0;
+						MoveNumber = 4;
 					}
 				}
-				//一定の距離で消滅
-				if (BlockPosition[i].z <= PlayerPosition.z - 50) {
-					BlockisAlive[i] = 0;
+
+				//イージングで移動
+				if (MoveNumber == 1) {
+					PlayerPosition.y = initPositionY - 20.0f * easeInSine(frame / frameMax);
+					PlayerRotation.z = initRotation - 360.0f * easeInSine(frame / frameMax);
+					if (frame != frameMax) {
+						frame = frame + 1;
+					} else {
+						MoveNumber = 0;
+					}
 				}
-		
-				if (BlockisAlive[i] == 1) {
-					float k;
-					k = sqrtf((BlockPosition[i].x - PlayerPosition.x) * (BlockPosition[i].x - PlayerPosition.x)
-						+ (BlockPosition[i].y - PlayerPosition.y) * (BlockPosition[i].y - PlayerPosition.y)
-						+ (BlockPosition[i].z - PlayerPosition.z) * (BlockPosition[i].z - PlayerPosition.z));
+
+				if (MoveNumber == 2) {
+					PlayerPosition.y = initPositionY + 20.0f * easeInSine(frame / frameMax);
+					PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
+					if (frame != frameMax) {
+						frame = frame + 1;
+					} else {
+						MoveNumber = 0;
+					}
+				}
+
+				if (MoveNumber == 3) {
+					PlayerPosition.x = initPositionX - 15.0f * easeInSine(frame / frameMax);
+					PlayerRotation.z = initRotation - 360.0f * easeInSine(frame / frameMax);
+					if (frame != frameMax) {
+						frame = frame + 1;
+					} else {
+						MoveNumber = 0;
+					}
+				}
+
+				if (MoveNumber == 4) {
+					PlayerPosition.x = initPositionX + 15.0f * easeInSine(frame / frameMax);
+					PlayerRotation.z = initRotation + 360.0f * easeInSine(frame / frameMax);
+					if (frame != frameMax) {
+						frame = frame + 1;
+					} else {
+						MoveNumber = 0;
+					}
+				}
+				//ブロック出現
+				for (int i = 0; i < Block_NUM; i++) {
+					if (BlockisAlive[i] == 0) {
+						ResPornTimer[i]--;
+						if (ResPornTimer[i] <= 0) {
+							ResPornTimer[i] = 10;
+							BlockisAlive[i] = 1;
+							BlockScale[i] = { 3.0f,3.0f,3.0f };
+							BlockRandLane[i] = rand() % 4;
+							BlockRandHigh[i] = rand() % 2;
+							if (WaveCount == 1) {
+								BlockRandZ[i] = rand() % 3500;
+							} else if (WaveCount == 2) {
+								BlockRandZ[i] = rand() % 2500;
+							} else if (WaveCount == 3) {
+								BlockRandZ[i] = rand() % 1500;
+							} else if (WaveCount == 4) {
+								BlockRandZ[i] = rand() % 1250;
+							} else if (WaveCount == 5) {
+								BlockRandZ[i] = rand() % 1000;
+							}
+							BlockPosition[i].z = PlayerPosition.z + BlockRandZ[i] + 200;
+							if (BlockRandHigh[i] == 0) {
+								BlockPosition[i].y = 5.0f;
+							} else if (BlockRandHigh[i] == 1) {
+								BlockPosition[i].y = -15.0f;
+							}
+							if (BlockRandLane[i] == 0) {
+								BlockPosition[i].x = -65.0f;
+							} else if (BlockRandLane[i] == 1) {
+								BlockPosition[i].x = -50.0f;
+							} else if (BlockRandLane[i] == 2) {
+								BlockPosition[i].x = -35.0f;
+							} else if (BlockRandLane[i] == 3) {
+								BlockPosition[i].x = -20.0f;
+							}
+						}
+					}
+					//一定の距離で消滅
+					if (BlockPosition[i].z <= PlayerPosition.z - 50) {
+						BlockisAlive[i] = 0;
+					}
+				}
+				for (int i = 0; i < Block_NUM; i++) {
+					if (BlockisAlive[i] == 1) {
+						BlockRotation[i].y += 5.0f;
 				
-					if (k <= 8) {
-						BlockbreakCount[i]++;
-						BlockPosition[i].z = PlayerPosition.z + 4.25;
+						if (collision->SphereCollision(BlockPosition[i].x, BlockPosition[i].y, BlockPosition[i].z,4,
+							PlayerPosition.x, PlayerPosition.y, PlayerPosition.z, 4) == 1 && hp >= 1) {
+							BlockbreakCount[i]++;
+							BlockPosition[i].z = PlayerPosition.z + 4.25;
+						}
+						
+						if (BlockbreakCount[i] == 7) {
+							ScoreSecondCount += 1;
+							BlockScale[i].x -= 1.0f;
+							BlockScale[i].y -= 1.0f;
+							BlockScale[i].z -= 1.0f;
+							BlockbreakCount[i] = 0;
+							hp--;
+						}
 					}
-				}
 
-				if (BlockbreakCount[i] == 7) {
-					ScoreSecondCount += 1;
-					BlockScale[i].x -= 1.0f;
-					BlockScale[i].y -= 1.0f;
-					BlockScale[i].z -= 1.0f;
-					BlockbreakCount[i] = 0;
-					hp--;
-				}
-
-				if (BlockScale[i].z <= 0.0f) {
-					BlockisAlive[i] = 0;
-					if (ResPornTimer[i] == 20) {
-						for (int j = 0; j < Particle_NUM; j++) {
-							particlePosition[j] = BlockPosition[i];
-							particleAlive[j] = 1;
-							particleXG[j] = rand() % 6 - 3;
-							particleYG[j] = rand() % 6;
+					if ((BlockScale[i].x <= 0.0f) && (BlockScale[i].y <= 0.0f) && (BlockScale[i].z <= 0.0f)) {
+						BlockisAlive[i] = 0;
+						if (ResPornTimer[i] == 10) {
+							audio->PlayWave("Resources/Sound/se_30103.wav", 0.3f);
+							for (int j = 0; j < Particle_NUM; j++) {
+								particlePosition[j] = BlockPosition[i];
+								particleAlive[j] = 1;
+								particleXG[j] = rand() % 6 - 3;
+								particleYG[j] = rand() % 6;
+							}
 						}
 					}
 				}
-			}
-			//パーティクル発生
-			for (int i = 0; i < Particle_NUM; i++) {
-				if (particleAlive[i] == 1) {
-					particleYG[i] -= 0.2;
-					particlePosition[i].x += particleXG[i];
-					particlePosition[i].y += particleYG[i];
-					if (particlePosition[i].y <= -200) {
-						particleAlive[i] = 0;
+				//パーティクル発生
+				for (int i = 0; i < Particle_NUM; i++) {
+					if (particleAlive[i] == 1) {
+						particleYG[i] -= 0.2;
+						particlePosition[i].x += particleXG[i];
+						particlePosition[i].y += particleYG[i];
+						if (particlePosition[i].y <= -200) {
+							particleAlive[i] = 0;
+						}
+					}
+				}
+				PlayerPosition.z += 0.75;
+
+				if (hp <= 0) {
+					PlayerPosition.y -= 0.1f;
+					PlayerRotation.x += 1.0f;
+					PlayerRotation.y += 1.0f;
+					if (PlayerPosition.y <= -30.0f) {
+						Scene = Result;
 					}
 				}
 			}
-			PlayerPosition.z += 0.75;
-
-			if (hp <= 0) {
-				Scene = Result;
-			}
+		}
 #pragma endregion
-		}
-	
-		//移動のやつ
-		//カメラの注視点をプレイヤーの位置に固定
-		target2.m128_f32[2] = PlayerPosition.z - 45;
-		//カメラ追従用の処理
-		target2.m128_f32[0] = PlayerPosition.x;
-		target2.m128_f32[1] = 0;
-		//行列を作り直す
-		rotM = XMMatrixRotationX(XMConvertToRadians(angle));
-		XMVECTOR v;
-		v = XMVector3TransformNormal(v0, rotM);
-		eye2 = target2 + v;
-		matview = XMMatrixLookAtLH((eye2), (target2), XMLoadFloat3(&up));
-		Player_object->SetPosition(PlayerPosition);
-		Player_object->SetRotation(PlayerRotation);
-		Player_object->Update(matview);
-		for (int i = 0; i < WaveBlock; i++) {
-			Block_object[i]->SetPosition(BlockPosition[i]);
-			Block_object[i]->SetScale(BlockScale[i]);
-			Block_object[i]->Update(matview);
-		}
-
-		for (int i = 0; i < Particle_NUM; i++) {
-			Particle_object[i]->SetPosition(particlePosition[i]);
-			Particle_object[i]->Update(matview);
-		}
 #pragma region//クリア
 		if (Scene == Result) {
-			if (input->TriggerKey(DIK_S)) {
-				Scene = title;
+			//もう一回ゲーム画面
+			if (input->TriggerKey(DIK_SPACE)) {
+				//様々なものの初期化
+				Scene = gamePlay;
+				PlayerPosition = { -65.0f,5.0f,0.0f };
+				PlayerRotation = { 0,180,0 };
+				hp = 20;
+				LaneNumber = 0;
+				HighNumber = 0;
+				WaveTimer = 0;
+				WaveCount = 1;
+				for (int i = 0; i < Block_NUM; i++) {
+					BlockPosition[i] = { 0.0f,0.0f,0.0f };
+					BlockRotation[i] = { 0.0f,0.0f,0.0f };
+					ResPornTimer[i] = 0;
+					BlockisAlive[i] = 0;
+				}
+				SpriteColorNumber = 0;
+				SpriteColorCount = 0;
+				ScoreFirstCount = 0;
+				ScoreSecondCount = 0;
+				ScoreThirdCount = 0;
+				ScoreFourCount = 0;
+				v0 = { 50,0,40,0 };
+				StartFlag = 0;
 			}
 		}
 #pragma endregion
 #pragma region//ウェーブ
 		if (Scene == Wave) {
+			if (SpriteColorCount == 0) {
+			}
 			if (SpriteColor.w <= 0.0f) {
 				SpriteColorNumber = 1;
 				SpriteColorCount++;
@@ -634,20 +653,48 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				SpriteColor.w += 0.025f;
 			}
 
-			if (SpriteColorCount == 10) {
-				hp += 5;
+			if (SpriteColorCount == 5) {
+				hp += 9;
 				if (hp >= 20) {
 					hp = 20;
 				}
 				Scene = gamePlay;
 				SpriteColorCount = 0;
-				for (int i = 0; i < WaveBlock; i++) {
+				for (int i = 0; i < Block_NUM; i++) {
 					BlockisAlive[i] = 0;
 					ResPornTimer[i] = 0;
 				}
 			}
 		}
 #pragma endregion
+		//移動のやつ
+		//カメラの注視点をプレイヤーの位置に固定
+		target2.m128_f32[2] = PlayerPosition.z;
+		//カメラ追従用の処理
+		target2.m128_f32[0] = PlayerPosition.x;
+		target2.m128_f32[1] = 0;
+		//行列を作り直す
+		rotM = XMMatrixRotationX(XMConvertToRadians(angle));
+		XMVECTOR v;
+		v = XMVector3TransformNormal(v0, rotM);
+		eye2 = target2 + v;
+		matview = XMMatrixLookAtLH((eye2), (target2), XMLoadFloat3(&up));
+		Player_object->SetPosition(PlayerPosition);
+		Player_object->SetRotation(PlayerRotation);
+		Player_object->Update(matview);
+		for (int i = 0; i < Block_NUM; i++) {
+			Block_object[i]->SetPosition(BlockPosition[i]);
+			Block_object[i]->SetRotation(BlockRotation[i]);
+			Block_object[i]->SetScale(BlockScale[i]);
+			Block_object[i]->Update(matview);
+		}
+
+		for (int i = 0; i < Particle_NUM; i++) {
+			Particle_object[i]->SetPosition(particlePosition[i]);
+			Particle_object[i]->Update(matview);
+		}
+
+
 #pragma endregion
 #pragma region//描画
 		//びょうがこまんど
@@ -661,20 +708,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		if (Scene == Explation) {
 			sprite[8]->Draw();
 		}
-
 		if (Scene == Result) {
 			sprite[7]->Draw();
 			spriteFirstNumber[ScoreFirstCount]->Draw();
 			spriteSecondNumber[ScoreSecondCount]->Draw();
 			spriteThirdNumber[ScoreThirdCount]->Draw();
 			spriteFourNumber[ScoreFourCount]->Draw();
-			if (ScoreFourCount >= 1) {
+			if (ScoreFourCount >= 1 && ScoreThirdCount >= 2) {
 				spriteRank[0]->Draw();
-			} else if(ScoreThirdCount >= 8){
+			} else if(ScoreFourCount == 0 && ScoreThirdCount >= 8){
 				spriteRank[1]->Draw();
-			} else if (ScoreThirdCount >= 5) {
+			} else if (ScoreFourCount == 0 && ScoreThirdCount >= 5) {
 				spriteRank[2]->Draw();
-			} else {
+			} else if (ScoreFourCount == 0 && ScoreThirdCount <= 4) {
 				spriteRank[3]->Draw();
 			}
 		}
@@ -688,53 +734,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 				sprite[6]->Draw();
 			}
 		}
-
-		Sprite::PreDraw(dxCommon->GetCmdList());
-
 		dxCommon->ClearDepthBuffer();
 		// スプライト描画後処理
 		Sprite::PostDraw();
 		////4.描画コマンドここから
 		dxCommon->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		Object3d::PreDraw(dxCommon->GetCmdList());
-		ImGui::Begin("test");
-		if (ImGui::TreeNode("Debug"))
-		{
-			if (ImGui::TreeNode("Player"))
-			{
-				ImGui::Indent();
-				ImGui::Text("hp:%d", hp);
-				ImGui::SliderFloat("Position.x", &PlayerPosition.x, 50, -50);
-				ImGui::SliderFloat("Position.y", &PlayerPosition.y, 50, -50);
-				ImGui::SliderFloat("Position.y", &PlayerPosition.z, 50, -50);
-				ImGui::Unindent();
-				ImGui::TreePop();
-			}
-
-			if (ImGui::TreeNode("Wave"))
-			{
-				ImGui::Indent();
-				ImGui::Text("WaveCount:%d", WaveCount);
-				ImGui::Text("SpaceCount:%d", SpaceCount);
-				ImGui::Text("WaveTimer:%d", WaveTimer);
-				ImGui::Text("ScoreSecond:%d", ScoreSecondCount);
-				ImGui::Text("ScoreThird:%d", ScoreThirdCount);
-				ImGui::Text("ScoreThird:%d", ScoreFourCount);
-				ImGui::Unindent();
-				ImGui::TreePop();
-			}
-			ImGui::TreePop();
-		}
-		ImGui::Indent();
-		ImGui::Unindent();
-		ImGui::End();
-
 		//描画コマンド
 		//背景
 		if (Scene == gamePlay) {
 			Player_object->Draw();
-			for (int i = 0; i < WaveBlock; i++) {
-				Block_object[i]->Draw();
+			for (int i = 0; i < Block_NUM; i++) {
+				if (BlockisAlive[i] == 1) {
+					Block_object[i]->Draw();
+				}
 			}
 
 			for (int i = 0; i < Particle_NUM; i++) {
@@ -752,10 +765,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		Sprite::PreDraw(dxCommon->GetCmdList());
 		if (Scene == gamePlay) {
 			sprite[10]->Draw();
-			sprite[11]->Draw();
-			sprite[12]->Draw();
-			sprite[13]->Draw();
-			sprite[14]->Draw();
+			if (LaneNumber != 3) {
+				sprite[11]->Draw();
+			}
+			if (LaneNumber != 0) {
+				sprite[12]->Draw();
+			}
+			if (HighNumber == 1) {
+				sprite[13]->Draw();
+			}
+			else {
+				sprite[14]->Draw();
+			}
 			sprite[2]->Draw();
 			sprite[2]->SetSize({ (float)(hp * 25.8),24.0f });
 		}
