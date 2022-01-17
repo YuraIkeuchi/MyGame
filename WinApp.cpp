@@ -14,7 +14,6 @@ LRESULT WinApp::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		return 0;
 	}
 	return DefWindowProc(hwnd, msg, wparam, lparam);
-
 }
 
 
